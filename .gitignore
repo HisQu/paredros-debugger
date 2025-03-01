@@ -1,0 +1,14 @@
+MyGrammarParser.py
+*Interpreter.py
+*Lexer.py
+*Listener.py
+*.Listener.py
+*.tokens
+*.interp
+*.java
+visualisation/
+.antlr/
+__pycache__/
+input.txt
+MyGrammar.g4
+output.txt
