@@ -4,10 +4,10 @@ import subprocess
 import sys
 import importlib
 
-from antlr4 import *
+from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker
 from antlr4.atn.PredictionMode import PredictionMode
 from antlr4.tree.Trees import Trees
-import modify_grammar_parser_file
+from modify_grammar_parser_file import modify_parser_file
 from LookaheadVisualizer import LookaheadVisualizer
 from DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
 
@@ -24,7 +24,8 @@ def get_start_rule(grammar_file):
                     # Look for the first rule definition
                     if ':' in line:
                         # Extract rule name before the colon
-                        return line.split(':')[0].strip()
+                        extracted_rule_names = line.split(':')[0].strip()
+                        return extracted_rule_names
     except FileNotFoundError:
         return ''
 
@@ -115,14 +116,15 @@ def visualize_parsing(folder_path, input_text):
             if direction == "p":
                 print_node(node.parent, depth)
             else:
-                choosen_alternative = input(f"{indent}  Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: ")
+                user_io = f"Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: "
+                choosen_alternative = input(user_io)
                 if choosen_alternative not in ["0",""]:
                     expanded_alt_node = traversal.expand_alternative(node, int(choosen_alternative))
                     expanded_alt_node.is_on_parse_tree = False
                     print_node(expanded_alt_node, depth)
                 else:
                     print_node(node.next_node, depth)
- 
+
             if node.next_node:
                 print_node(node.next_node, depth)
 
@@ -133,22 +135,6 @@ def visualize_parsing(folder_path, input_text):
 
         if traversal.root:
             print_node(traversal.root)
-
-        # Debug expanded alternatives of merged node
-        # print("\nExpanded Alternatives test:")
-        # node = traversal.get_node_by_id(27)
-        # print("ID:", node.get_unique_identifier())
-        # print("Rule:", node.rule_name)
-        # print("State:", node.state)
-        # print("Possible Alts:", node.possible_alternatives)
-        # print("Alternative Nodes:", node.alternative_nodes)
-        # expanded = traversal.expand_alternative(node, 1)
-        # expanded2 = traversal.expand_alternative(node, 2)
-        # expanded3 = traversal.expand_alternative(node, 3)
-        # print_node(expanded)
-        # print_node(expanded2)
-        # print_node(expanded3)
-
 
     except Exception as e:
         print(f"\n💥 Parsing failed: {str(e)}")
@@ -174,19 +160,19 @@ def generate_parser(folder_path):
 
 def modify_generated_parser(folder_path):
     """Runs the modify_grammar_parser_file.py script to process the generated files."""
-    modify_grammar_parser_file.modify_parser_file(folder_path)
+    modify_parser_file(folder_path)
 
 def load_parser_and_lexer(folder_path):
     """Dynamically load the generated MyGrammarLexer and MyGrammarParser."""
     sys.path.insert(0, folder_path)  # Ensure the folder is in the Python path
-    
+
     try:
         lexer_module = importlib.import_module("MyGrammarLexer")
         parser_module = importlib.import_module("MyGrammarParser")
-        
+
         lexer_class = getattr(lexer_module, "MyGrammarLexer")
         parser_class = getattr(parser_module, "MyGrammarParser")
-        
+
         return lexer_class, parser_class
     except ImportError as e:
         print(f"Error: Unable to load the generated parser/lexer: {e}")
@@ -195,14 +181,14 @@ def load_parser_and_lexer(folder_path):
 def main():
     """Main entry point for the CLI tool."""
     parser = argparse.ArgumentParser(description="Process ANTLR4 grammar and modify parser.")
-    parser.add_argument(dest="folder_path", type=str,
+    parser.add_argument(dest="grammar_folder_path", type=str,
                         help="Path to the folder containing the .g4 Grammar file")
-    parser.add_argument(dest="input_file", type=str,
+    parser.add_argument(dest="input_file_path", type=str,
                         help="Path of the input file")
     args = parser.parse_args()
 
-    folder_path = os.path.abspath(args.folder_path)
-    input_file = os.path.abspath(args.input_file)
+    folder_path = os.path.abspath(args.grammar_folder_path)
+    input_file = os.path.abspath(args.input_file_path)
 
     if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
         print(f"Error: The folder {folder_path} does not exist or is not a directory.")
