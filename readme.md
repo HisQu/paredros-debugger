@@ -8,29 +8,26 @@ This tool helps visualize ANTLR4 parser lookahead and decision-making process fo
 - ANTLR4 (4.13.2)
 - Java Runtime Environment (JRE)
 
-## Setup and Usage
+## Setup and Usage CLI Tool
 
-1. First, compile the grammar file using ANTLR4:
-
-```sh
-antlr4 -Dlanguage=Python3 MyGrammar.g4
-```
-
-2. Modify the generated parser to use our custom error handling:
+1. Run the Command line tool with specified path to the folder containing your grammar and a path to a text file contaning
+   your Input Text:
 
 ```sh
-python modify_grammar_parser_file.py
+python cli.py <folder_path_grammar> <path_to_input.txt>
 ```
 
-3. Run the visualization tool: 
-```sh
-python verbose.py
-```
 
 The tool will:
 
-- Read input from input.txt
-- Parse it according to the grammar rules in MyGrammar.g4
+- Read the specified input
+- Parse it according to the grammar rules in your Grammar
 - Display detailed information about parser decisions and lookahead
-## Input Format
-Your input text should be placed in `input.txt` and follow the grammar rules defined in `MyGrammar.g4`. The current grammar is designed to parse structured text with head and sublemma tags.
+- Displays a Parse Tree
+- Display a Interactive REPL to interact with the ATN representation of your grammar and your Input text
+  
+## REPL Usage
+For every step of the grammar you get first prompted if you want to visit a child *c* or a parent *p* of your current node.
+Choose accordingly. Hitting Return without input will step to a child by default.
+Then you get prompted to choose between to dive into an alternative node, then you have to enter a number in the range 1-X.
+if you want the next node of the parse based on input enter 0. Hitting Return without input will step into the next node on the parsetree on default.
