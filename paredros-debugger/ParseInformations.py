@@ -15,29 +15,35 @@ from antlr4.atn.PredictionMode import PredictionMode
 from LookaheadVisualizer import LookaheadVisualizer
 from DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
 from UserGrammar import UserGrammar
+from ParseNode import ParseNode
 
 from utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
-class NodeWrapper:
+class NodeWrapper(ParseNode):
     """Wrapper for ANTLR parse tree nodes to enable easy traversal."""
     def __init__(self, node, parser):
         self.node = node
         self.parser = parser
 
-    def get_text(self):
-        return Trees.getNodeText(self.node, self.parser)
-
-    def get_children(self):
-        return [NodeWrapper(child, self.parser) for child in self.node.getChildren()]
-    
-    def __repr__(self):
-        return f"NodeWrapper(text={self.get_text()})"
 
 class ParseInformations:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
     def __init__(self, grammar_folder, input_file_path):
         self.grammar_folder = os.path.abspath(grammar_folder)
         self.input_file = os.path.abspath(input_file_path)
+        self.input_text = None
+        self.lexer_class = None
+        self.parser_class = None
+        self.root = None
+        self.walker = None
+        self.listener = None
+        self.grammar_file = None
+        self.rules_dict = None
+        self.parse_tree = None
+        self.tokens = None
+        self.lexer = None
+        self.parser = None
+        self.input_stream = None
 
         if not os.path.exists(self.grammar_folder) or not os.path.isdir(self.grammar_folder):
             raise FileNotFoundError(f"The folder {self.grammar_folder} does not exist or is not a directory.")
@@ -77,32 +83,29 @@ class ParseInformations:
     def _parse(self):
         """Runs the parser on the given input text and returns the root parse tree node."""
         print("input stream")
-        input_stream = InputStream(self.input_text)
+        self.input_stream = InputStream(self.input_text)
         print("lexer")
-        lexer = self.lexer_class(input_stream)
+        self.lexer = self.lexer_class(input_stream)
         print("tokens")
-        tokens = CommonTokenStream(lexer)
+        self.tokens = CommonTokenStream(lexer)
         print("parser")
-        parser = self.parser_class(tokens)
+        self.parser = self.parser_class(tokens)
 
-        parser._interp = LookaheadVisualizer(parser)
-        parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
-        parser.removeErrorListeners()
-        walker = ParseTreeWalker()
-        listener = DetailedParseListener(parser)
+        self.parser._interp = LookaheadVisualizer(parser)
+        self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
+        self.parser.removeErrorListeners()
+        self.walker = ParseTreeWalker()
+        self.listener = DetailedParseListener(parser)
         self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
         grammar = UserGrammar()
         grammar.add_grammar_file(self.grammar_file)
         self.rules_dict = grammar.get_rules()
-        start_rule = get_start_rule(self.grammar_file)
+        self.start_rule = get_start_rule(self.grammar_file)
         print("start rule", start_rule)
         parse_method = getattr(parser, start_rule)
         tree = parse_method()
         self.parse_tree = Trees.toStringTree(tree, None, parser)
         print("Final Parse Tree")   
         print(self.parse_tree)
-        return NodeWrapper(tree, parser)
+        return NodeWrapper()
     
-    def get_root_node(self):
-        """Returns the root node of the parsed tree."""
-        return self.root
