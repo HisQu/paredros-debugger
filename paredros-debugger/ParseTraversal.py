@@ -6,7 +6,7 @@ class ParseTraversal:
         self.current_node = None
         self.all_nodes = []
         self.parser = None
-        
+
 
     def set_parser(self, parser):
         self.parser = parser
@@ -26,18 +26,18 @@ class ParseTraversal:
             self.current_node.rule_name = current_rule
             self.current_node.node_type = node_type
             return self.current_node
-        
+
         # Create node if no duplicate found
         new_node = ParseNode(state, current_token, lookahead, possible_alternatives, input_text, current_rule, node_type)
         self.all_nodes.append(new_node)
-        
+
         if not self.root:
             self.root = new_node
             self.current_node = new_node
         else:
             self.current_node.add_next_node(new_node)
             self.current_node = new_node
-            
+
         if possible_alternatives:
             for alt_num, (target_state, tokens) in enumerate(possible_alternatives):
                 alt_node = ParseNode(
@@ -50,38 +50,38 @@ class ParseTraversal:
                     node_type
                 )
                 new_node.add_alternative_node(alt_node)
-                
+
         return new_node
 
     def expand_alternative(self, node, alternative_index):
         """Create a new branch from the given node for the specified alternative
-        
+
         Args:
             node (ParseNode): The node containing the alternative to expand
             alternative_index (int): Index of the alternative to expand (1-based)
-        
+
         Returns:
             ParseNode: The expanded alternative node with its new possible transitions
         """
         # Validate inputs
         if not node or alternative_index < 1 or alternative_index > len(node.alternative_nodes):
             return None
-            
+
         # Get the alternative node we want to expand
         alt_node = node.alternative_nodes[alternative_index - 1]
-        
+
         # Get target state from original node's possible alternatives
         target_state_num = node.possible_alternatives[alternative_index - 1][0]
-        
+
         # Get the ATN state object
         target_state = self.parser._interp.atn.states[target_state_num]
-        
+
         # Get possible transitions using the same method as in CustomErrorHandler
         possible_alternatives = self.parser._errHandler.follow_transitions(target_state, self.parser)
-        
+
         # Update the alternative node with new transitions
         alt_node.possible_alternatives = possible_alternatives
-        
+
         # Create child nodes for each possible transition
         if possible_alternatives:
             for target_state, tokens in possible_alternatives:
@@ -95,39 +95,39 @@ class ParseTraversal:
                     alt_node.node_type
                 )
                 alt_node.add_alternative_node(child_node)
-        
+
         return alt_node
 
     def get_node_by_id(self, node_id):
         """Find a node by its unique identifier
-        
+
         Args:
             node_id: The ID to search for (can be numeric or 'Alt X' format)
-            
+
         Returns:
             ParseNode: The node with matching ID, or None if not found
         """
         def search_node(node):
             if str(node.id) == str(node_id):
                 return node
-                
+
             # Search alternative nodes
             for alt in node.alternative_nodes:
                 if str(alt.id) == str(node_id):
                     return alt
-                    
+
             # Search next node in chain
             if node.next_node:
                 result = search_node(node.next_node)
                 if result:
                     return result
-                    
+
             return None
-        
+
         if self.root:
             return search_node(self.root)
         return None
-    
+
     def group_and_merge(self):
         """
         Identifies groups of decision/sync nodes that share the same rule name.
@@ -138,18 +138,18 @@ class ParseTraversal:
         cleanup_groups = []
         current_group = []
         current_rule = None
-        
+
         for node in self.all_nodes:
             # Skip nodes we don't want to modify
             if node.node_type in ['Rule entry', 'Rule exit', 'Token consume']:
                 # If we have a pending group, add it to cleanup_groups
                 if len(current_group) > 1:
                     cleanup_groups.append(current_group)
-            
+
                 current_group = []
                 current_rule = None    
                 continue
-                
+
             # Only process decision and sync nodes
             if node.node_type in ['Decision', 'Sync']:
                 # If this is the start of a new group
@@ -165,11 +165,11 @@ class ParseTraversal:
                         cleanup_groups.append(current_group)
                     current_group = [node]
                     current_rule = node.rule_name
-        
+
         # Handle last group if exists
         if current_group and len(current_group) > 1:
             cleanup_groups.append(current_group)
-            
+
         # Process each group and create merged nodes
         merged_nodes = []
         for group in cleanup_groups:
@@ -189,13 +189,13 @@ class ParseTraversal:
                         seen_alt_nodes.add(alt_node.state)
                         all_alt_nodes.append(alt_node)
 
-            
+
             # Convert back to list and sort for consistency
             all_alternatives = sorted(list(all_alternatives))
-            
+
             # Get the chosen alternative of the last node
             last_chosen = group[-1].chosen
-            
+
             # If the last node had a chosen alternative, find its equivalent in merged alternatives
             # The last node always has a chosen alternative due to how we build our datastructure (we still double check for safety)
             new_chosen = -1
@@ -207,7 +207,7 @@ class ParseTraversal:
                     if merged_state == target_state and tuple(matches) == merged_matches:
                         new_chosen = i + 1
                         break
-            
+
             # Create merged node
             merged_node = ParseNode(
                 state=group[0].state,  # Use first node's state
@@ -225,14 +225,14 @@ class ParseTraversal:
             merged_node.alternative_nodes = all_alt_nodes  # Use all alternative nodes
             merged_node.chosen = new_chosen
             merged_nodes.append((group, merged_node))
-            
+
         return merged_nodes
-    
+
 
     def replace_merged_nodes(self, merged_groups):
         """
         Replaces groups of nodes with their merged versions and fixes the node structure.
-        
+
         Args:
             merged_groups: List of tuples (original_group, merged_node) from group_and_merge()
         """
@@ -240,7 +240,7 @@ class ParseTraversal:
         # Create new list to rebuild in correct order
         new_nodes = []
         current_pos = 0
-        
+
         for group, merged_node in merged_groups:
             # Add all nodes before the group
             while current_pos < len(self.all_nodes):
@@ -249,10 +249,10 @@ class ParseTraversal:
                     break
                 new_nodes.append(node)
                 current_pos += 1
-                
+
             # Add merged node
             new_nodes.append(merged_node)
-            
+
             # Update connections to merged node
             if new_nodes[-2:]:  # If we have at least 2 nodes
                 prev_node = new_nodes[-2]
@@ -260,7 +260,7 @@ class ParseTraversal:
                 merged_node.parent = prev_node
             elif not new_nodes[:-1]:  # If this is the first node
                 self.root = merged_node
-                
+
             # Skip all nodes in group
             while current_pos < len(self.all_nodes) and self.all_nodes[current_pos] in group:
                 if current_pos + 1 < len(self.all_nodes) and self.all_nodes[current_pos + 1] not in group:
@@ -269,40 +269,40 @@ class ParseTraversal:
                     merged_node.next_node = next_node
                     next_node.parent = merged_node
                 current_pos += 1
-        
+
 
         # Add any remaining nodes
         while current_pos < len(self.all_nodes):
             new_nodes.append(self.all_nodes[current_pos])
             current_pos += 1
-            
+
         # Replace all_nodes with new ordered list
         self.all_nodes = new_nodes
-        
+
         # Update root if needed
         if new_nodes:
             if not self.root:
                 self.root = new_nodes[0]
-            
+
 
     def _fix_node_ids(self):
         """
         Reassigns sequential IDs to all nodes in the traversal after structural changes.
         """
         next_id = 0
-        
+
         # Fix IDs in all_nodes list to ensure sequential ordering
         for node in self.all_nodes:
             node.id = next_id
             next_id += 1
-            
+
         # Fix IDs of alternative nodes for each node
         def update_alt(node):
             for i, alt in enumerate(node.alternative_nodes, 1):
                 alt.id = f"Alt {i}"
-                
+
             if node.next_node:
                 update_alt(node.next_node)
-        
+
         if self.root:
             update_alt(self.root)
