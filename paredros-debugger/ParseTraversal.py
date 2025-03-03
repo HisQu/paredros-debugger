@@ -9,10 +9,12 @@ class ParseTraversal:
 
 
     def set_parser(self, parser):
+        """Set the parser instance"""
         self.parser = parser
 
     def add_decision_point(self, state, current_token, lookahead, possible_alternatives, input_text, current_rule, node_type):
-        # Fix for duplicate nodes created by adaptivepredict and sync calls 
+        """Add a new decision point node to the traversal"""
+        # Fix for duplicate nodes created by adaptivepredict and sync calls
         # If there are duplicate nodes there is always a node with alterinatives (from adaptivepredict) and one without (from sync)
         # This checks for that and updates the node without the alternatives instead of creating a new one
         if (self.current_node and 

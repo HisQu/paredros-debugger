@@ -1,6 +1,8 @@
 from pprint import pprint
 import json
 
+from antlr4.atn.Transition import *
+
 class ParseNode:
     def __init__(self, state, current_token, lookahead, possible_alternatives, input_text, rule, node_type, parent_id=-1):
         self.state = state                                  # ATN state number
@@ -46,12 +48,13 @@ class ParseNode:
     def get_unique_identifier(self):
         """Get unique identifier combining ID and state"""
         return f"{self.id}"
-    
+
     def set_error(self):
         """Mark this node as having an error"""
         self.has_error = True
 
     def print_attributes(self):
+        """Pretty Print the object's attributes."""
         self.next_node_verbose = self.get_verbose_node()
         self.alternative_nodes_verbose = self.get_alternative_nodes_verbose()
         pprint(vars(self))
@@ -63,46 +66,46 @@ class ParseNode:
     def get_attributes_as_json(self):
         """Returns the object's attributes as a JSON string."""
         return json.dumps(vars(self), indent=4)
-    
+
     def follow_path_to_tokens(self, recognizer, visited_rules=None):
         """
         Follow transitions from a specific state until finding token transitions.
-        
+
         Args:
             recognizer: The parser instance
             start_state_id: The ATN state ID to start from
             visited_rules: Set of already visited rule names (for recursion breaking)
-        
+
         Returns:
             list: token_transitions as list of (state_number, tokens) for atom/set transitions
         """
         if visited_rules is None:
             visited_rules = set()
-            
+
         # Array of reachable tokens
         token_transitions = []
-        
+
         # Prevent crash for calling function on consume nodes
         if hasattr(self.state, 'stateNumber'):
             states_to_visit = [self.state.stateNumber]
         else:
             states_to_visit = [self.state]
  
-        
+
         while states_to_visit:
             # Process next state in the queue
             current_state = states_to_visit.pop(0)
-            
+
             # Get the ATN state
             atn_state = recognizer._interp.atn.states[current_state]
-            
+
             for transition in atn_state.transitions:
                 tokens = []
 
                 # Handle atom transitions
                 if isinstance(transition, AtomTransition):
                     label = transition.label_
-                
+
                     # Try symbolic names if literal is invalid
                     if (label < len(recognizer.literalNames) and 
                         recognizer.literalNames[label] == "<INVALID>" and 
@@ -116,11 +119,11 @@ class ParseNode:
                     elif (label < len(recognizer.symbolicNames) and 
                         recognizer.symbolicNames[label]):
                         tokens.append(recognizer.symbolicNames[label])
-                
+
                     if tokens:
                         token_transitions.append((current_state, tokens))
                         continue
-                        
+
                 # Handle set transitions
                 elif isinstance(transition, SetTransition):
                     for t in transition.label:
@@ -141,25 +144,24 @@ class ParseNode:
                     if tokens:
                         token_transitions.append((current_state, tokens))
                         continue
-                        
+
                 # Handle rule transitions
                 elif isinstance(transition, RuleTransition):
                     rule_name = recognizer.ruleNames[transition.ruleIndex] if transition.ruleIndex < len(recognizer.ruleNames) else "unknown"
-                    
+
                     # Skip if we've seen this rule before
                     if rule_name in visited_rules:
                         continue
-                        
+
                     visited_rules.add(rule_name)
                     states_to_visit.append(transition.target.stateNumber)
                     continue
-                    
+
                 # For epsilon transitions, just add the target state
                 else:
                     states_to_visit.append(transition.target.stateNumber)
-                    
+
         return token_transitions
-    
 
     # Helper method for checking if a node matches the current rule, called by the error handler
     def matches_rule_entry(self, ruleName):
@@ -183,13 +185,13 @@ class ParseNode:
             token_parts = token_str.split(" ")  # Split "INT ('4')" into ["INT", "('4')"]
             token_type = token_parts[0]         # Get "INT"
             token_instance = token_str.split("'")[1]  # Get "4" from "('4')"
-            
+
             for target_state, tokens in self.possible_alternatives:
                 # Check if either the token type or the actual value matches
                 if any(t == token_type or token_instance == t.strip("'") for t in tokens):
                     return True
         return False
-    
+
     # Helper method for getting the index of the alternative that matches the token, called by the error handler
     def get_matching_alternative(self, token_str):
         """Get the index of the alternative that matches the token"""
