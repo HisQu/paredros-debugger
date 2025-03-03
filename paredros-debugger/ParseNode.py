@@ -4,8 +4,8 @@ import json
 class ParseNode:
     def __init__(self, state, current_token, lookahead, possible_alternatives, input_text, rule, node_type, parent_id=-1):
         self.state = state                                  # ATN state number
-        self.current_token = current_token                  # Current token being processed
-        self.lookahead = lookahead                          # List of upcoming tokens
+        self.current_token = current_token                  # Current token being processed 
+        self.lookahead = lookahead                         # List of upcoming tokens
         self.possible_alternatives = possible_alternatives  # Available parsing alternatives
         self.chosen = -1                                    # Chosen alternative (if known)
         self.input_text = input_text                        # Current input context
@@ -15,7 +15,7 @@ class ParseNode:
         self.alternative_nodes = []                         # Alternative nodes as siblings
         self.alternative_nodes_verbose = []                 # Verbose representation of the alternative nodes
         self.id = (parent_id + 1) if isinstance(parent_id, int) and parent_id >= 0 else 0  # Unique ID within its branch
-        self.rule_name = rule                               # Current rule name
+        self.rule_name = rule                          # Current rule name
         self.has_error = False
         self.node_type = node_type
 
@@ -50,7 +50,7 @@ class ParseNode:
     def set_error(self):
         """Mark this node as having an error"""
         self.has_error = True
-    
+
     def print_attributes(self):
         self.next_node_verbose = self.get_verbose_node()
         self.alternative_nodes_verbose = self.get_alternative_nodes_verbose()
@@ -64,10 +64,104 @@ class ParseNode:
         """Returns the object's attributes as a JSON string."""
         return json.dumps(vars(self), indent=4)
     
-    # Helper methods for checking if a node matches the current rule or token
-    # These methods check all alternatives and return True if any match
-    # This way we can determine the alternative for nodes that have no chosen given
+    def follow_path_to_tokens(self, recognizer, visited_rules=None):
+        """
+        Follow transitions from a specific state until finding token transitions.
+        
+        Args:
+            recognizer: The parser instance
+            start_state_id: The ATN state ID to start from
+            visited_rules: Set of already visited rule names (for recursion breaking)
+        
+        Returns:
+            list: token_transitions as list of (state_number, tokens) for atom/set transitions
+        """
+        if visited_rules is None:
+            visited_rules = set()
+            
+        # Array of reachable tokens
+        token_transitions = []
+        
+        # Prevent crash for calling function on consume nodes
+        if hasattr(self.state, 'stateNumber'):
+            states_to_visit = [self.state.stateNumber]
+        else:
+            states_to_visit = [self.state]
+ 
+        
+        while states_to_visit:
+            # Process next state in the queue
+            current_state = states_to_visit.pop(0)
+            
+            # Get the ATN state
+            atn_state = recognizer._interp.atn.states[current_state]
+            
+            for transition in atn_state.transitions:
+                tokens = []
 
+                # Handle atom transitions
+                if isinstance(transition, AtomTransition):
+                    label = transition.label_
+                
+                    # Try symbolic names if literal is invalid
+                    if (label < len(recognizer.literalNames) and 
+                        recognizer.literalNames[label] == "<INVALID>" and 
+                        label < len(recognizer.symbolicNames)):
+                        tokens.append(recognizer.symbolicNames[label])
+                    # Try literal names
+                    elif (label < len(recognizer.literalNames) and 
+                        recognizer.literalNames[label]):
+                        tokens.append(recognizer.literalNames[label])
+                    # Fall back to symbolic names
+                    elif (label < len(recognizer.symbolicNames) and 
+                        recognizer.symbolicNames[label]):
+                        tokens.append(recognizer.symbolicNames[label])
+                
+                    if tokens:
+                        token_transitions.append((current_state, tokens))
+                        continue
+                        
+                # Handle set transitions
+                elif isinstance(transition, SetTransition):
+                    for t in transition.label:
+                        # Try symbolic names if literal is invalid
+                        if (t < len(recognizer.literalNames) and 
+                            recognizer.literalNames[t] == "<INVALID>" and 
+                            t < len(recognizer.symbolicNames)):
+                            tokens.append(recognizer.symbolicNames[t])
+                        # Try literal names
+                        elif (t < len(recognizer.literalNames) and 
+                            recognizer.literalNames[t]):
+                            tokens.append(recognizer.literalNames[t])
+                        # Fall back to symbolic names
+                        elif (t < len(recognizer.symbolicNames) and 
+                            recognizer.symbolicNames[t]):
+                            tokens.append(recognizer.symbolicNames[t])
+
+                    if tokens:
+                        token_transitions.append((current_state, tokens))
+                        continue
+                        
+                # Handle rule transitions
+                elif isinstance(transition, RuleTransition):
+                    rule_name = recognizer.ruleNames[transition.ruleIndex] if transition.ruleIndex < len(recognizer.ruleNames) else "unknown"
+                    
+                    # Skip if we've seen this rule before
+                    if rule_name in visited_rules:
+                        continue
+                        
+                    visited_rules.add(rule_name)
+                    states_to_visit.append(transition.target.stateNumber)
+                    continue
+                    
+                # For epsilon transitions, just add the target state
+                else:
+                    states_to_visit.append(transition.target.stateNumber)
+                    
+        return token_transitions
+    
+
+    # Helper method for checking if a node matches the current rule, called by the error handler
     def matches_rule_entry(self, ruleName):
         """Check if this node represents entry into the given rule"""
         for alt_state, tokens in self.possible_alternatives:
