@@ -44,6 +44,7 @@ class ParseInformations:
         self.lexer = None
         self.parser = None
         self.input_stream = None
+        self.traversal = None
 
         if not os.path.exists(self.grammar_folder) or not os.path.isdir(self.grammar_folder):
             raise FileNotFoundError(f"The folder {self.grammar_folder} does not exist or is not a directory.")
@@ -85,27 +86,32 @@ class ParseInformations:
         print("input stream")
         self.input_stream = InputStream(self.input_text)
         print("lexer")
-        self.lexer = self.lexer_class(input_stream)
+        self.lexer = self.lexer_class(self.input_stream)
         print("tokens")
-        self.tokens = CommonTokenStream(lexer)
+        self.tokens = CommonTokenStream(self.lexer)
         print("parser")
-        self.parser = self.parser_class(tokens)
+        self.parser = self.parser_class(self.tokens)
 
-        self.parser._interp = LookaheadVisualizer(parser)
+        self.parser._interp = LookaheadVisualizer(self.parser)
         self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
         self.parser.removeErrorListeners()
         self.walker = ParseTreeWalker()
-        self.listener = DetailedParseListener(parser)
+        self.listener = DetailedParseListener(self.parser)
+
         self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
         grammar = UserGrammar()
         grammar.add_grammar_file(self.grammar_file)
         self.rules_dict = grammar.get_rules()
         self.start_rule = get_start_rule(self.grammar_file)
-        print("start rule", start_rule)
-        parse_method = getattr(parser, start_rule)
+        print("start rule", self.start_rule)
+        parse_method = getattr(self.parser, self.start_rule)
         tree = parse_method()
-        self.parse_tree = Trees.toStringTree(tree, None, parser)
+        self.parse_tree = Trees.toStringTree(tree, None, self.parser)
         print("Final Parse Tree")   
         print(self.parse_tree)
-        return NodeWrapper()
-    
+        
+        self.traversal = self.parser._errHandler.traversal
+        merged_groups = self.traversal.group_and_merge()
+        self.traversal.replace_merged_nodes(merged_groups)
+        self.traversal._fix_node_ids()
+        

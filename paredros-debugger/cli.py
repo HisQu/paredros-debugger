@@ -10,6 +10,9 @@ from antlr4.tree.Trees import Trees
 
 from LookaheadVisualizer import LookaheadVisualizer
 from DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
+from CustomErrorHandler import CustomDefaultErrorStrategy
+from ParseTraversal import ParseTraversal
+from ParseNode import ParseNode
 
 from UserGrammar import UserGrammar
 from utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
@@ -70,7 +73,8 @@ def visualize_parsing_cli(folder_path, input_text):
         print("\n=== Parse Traversal Analysis ===")
         traversal = parser._errHandler.traversal
 
-        def print_node(node, depth=0, is_alternative=False):
+        def display_node(node, depth=0, is_alternative=False, rules_dict=None):
+            """Display node information without REPL interaction."""
             indent = "  " * depth
             prefix = "↳" if is_alternative else "●"
 
@@ -88,31 +92,31 @@ def visualize_parsing_cli(folder_path, input_text):
             print(f"{indent}  Input: {node.input_text}")
             print("=== Possible Alternatives ===")
 
-            # Add alternative details from stored possible_alternatives
             if node.possible_alternatives:
                 print(f"{indent}  Possible transitions:")
                 for i, (target_state, matches) in enumerate(node.possible_alternatives, 1):
                     print(f"{indent}    {i}: Matches: ({target_state}, {matches})")
-                # print(f"{indent} Correct parse tree Chosen: Alternative {node.chosen}")
-            print("=== Node Attributes ===")
-            # Repl part
-            node.print_attributes()
-            print("=== User Interaction ===")
-            direction = input(f"{indent} Step to parent or child (p/c): ")
-            if direction == "p":
-                print_node(node.parent, depth)
-            else:
-                user_io = f"Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: "
-                choosen_alternative = input(user_io)
-                if choosen_alternative not in ["0",""]:
-                    expanded_alt_node = traversal.expand_alternative(node, int(choosen_alternative))
-                    expanded_alt_node.is_on_parse_tree = False
-                    print_node(expanded_alt_node, depth)
-                else:
-                    print_node(node.next_node, depth)
 
-            if node.next_node:
-                print_node(node.next_node, depth)
+        def handle_repl_interaction(node, traversal, depth=0, rules_dict=None):
+            """Handle REPL interaction for node traversal."""
+            display_node(node, depth, rules_dict=rules_dict)
+            print("=== User Interaction ===")
+            direction = input(f"  Step to parent or child (p/c): ")
+            if direction == "p":
+                if node.parent:
+                    handle_repl_interaction(node.parent, traversal, depth, rules_dict)
+            else:
+                if node.possible_alternatives and len(node.possible_alternatives) > 1:
+                    user_io = f"Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: "
+                    chosen_alternative = input(user_io)
+                    if chosen_alternative not in ["0", ""]:
+                        expanded_alt_node = traversal.expand_alternative(node, int(chosen_alternative))
+                        expanded_alt_node.is_on_parse_tree = False
+                        handle_repl_interaction(expanded_alt_node, traversal, depth, rules_dict)
+                    elif node.next_node:
+                        handle_repl_interaction(node.next_node, traversal, depth, rules_dict)
+                elif node.next_node:
+                    handle_repl_interaction(node.next_node, traversal, depth, rules_dict)
 
         print("\n=== After Cleanup ===")
         merged_groups = traversal.group_and_merge()
@@ -120,7 +124,8 @@ def visualize_parsing_cli(folder_path, input_text):
         traversal._fix_node_ids()
 
         if traversal.root:
-            print_node(traversal.root)
+            handle_repl_interaction(traversal.root, traversal, rules_dict=rules_dict)
+
 
     except Exception as e:
         print(f"\n💥 Parsing failed: {str(e)}")
