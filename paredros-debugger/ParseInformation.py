@@ -26,7 +26,7 @@ class NodeWrapper(ParseNode):
         self.parser = parser
 
 
-class ParseInformations:
+class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
     def __init__(self, grammar_folder, input_file_path):
         self.grammar_folder = os.path.abspath(grammar_folder)

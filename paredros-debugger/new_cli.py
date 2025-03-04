@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from ParseInformations import ParseInformations
+from ParseInformation import ParseInformation
 
 def display_node(node, depth=0, is_alternative=False, rules_dict=None):
     """Display node information without REPL interaction."""
@@ -54,7 +54,7 @@ def visualize_parsing(grammar_folder, input_file):
     """Visualizes the parsing process for the given input file."""
     try:
         print(f"\n=== Parsing {input_file} ===")
-        parse_info = ParseInformations(grammar_folder , input_file)
+        parse_info = ParseInformation(grammar_folder , input_file)
         print("=== Parsing completed ===")
         print(parse_info.traversal.root)
         print("=== REPL Interaction ===")
@@ -75,14 +75,9 @@ def traverse_tree(node, depth=0):
 def main():
     """Main entry point for the CLI tool."""
     parser = argparse.ArgumentParser(description="Process ANTLR4 grammar and modify parser.")
-    parser.add_argument("grammar_folder_path", type=str, nargs='?', 
-                       default="/home/patrick/DigitalHumanities/paredros-debugger/grammar",
-                       help="Path to the folder containing the .g4 Grammar file")
-    parser.add_argument("input_file_path", type=str, nargs='?',
-                       default="/home/patrick/DigitalHumanities/paredros-debugger/grammar/input.txt",
-                       help="Path of the input file")
+    parser.add_argument("grammar_folder_path", type=str, help="Path to the folder containing the .g4 Grammar file")
+    parser.add_argument("input_file_path", type=str, help="Path of the input file")
     args = parser.parse_args()
-    
 
     folder_path = os.path.abspath(args.grammar_folder_path)
     input_file = os.path.abspath(args.input_file_path)
