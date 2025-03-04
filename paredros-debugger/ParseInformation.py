@@ -19,13 +19,6 @@ from ParseNode import ParseNode
 
 from utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
-class NodeWrapper(ParseNode):
-    """Wrapper for ANTLR parse tree nodes to enable easy traversal."""
-    def __init__(self, node, parser):
-        self.node = node
-        self.parser = parser
-
-
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
     def __init__(self, grammar_folder, input_file_path):
@@ -74,6 +67,7 @@ class ParseInformation:
              input_text = f.read()
         except FileNotFoundError as e:
             raise FileNotFoundError(f"The file {self.input_file} does not exist.") from e
+        
         print("======= Reading input file =======")
         self.input_text = input_text
         print("======= Load parser and lexer =======")
