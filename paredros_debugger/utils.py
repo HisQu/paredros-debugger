@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 
+# todo: return list with all grammar files in folder
 def find_grammar_file(folder_path):
     """Finds a .g4 grammar file in the given folder path."""
     for file in os.listdir(folder_path):
@@ -18,25 +19,28 @@ def rename_grammar_file(folder_path, grammar_file):
     os.rename(old_path, new_path)
     return new_path
 
-def generate_parser(folder_path):
+# todo
+def generate_parser(folder_path, grammar_file):
     """Runs ANTLR4 to generate the parser in the specified folder."""
-    command = ["antlr4", "-Dlanguage=Python3", "MyGrammar.g4"]
+    command = ["antlr4", "-Dlanguage=Python3", grammar_file]
     subprocess.run(command, cwd=folder_path, check=True)
 
 def modify_generated_parser(folder_path):
     """Runs the modify_grammar_parser_file.py script to process the generated files."""
     modify_parser_file(folder_path)
 
-def load_parser_and_lexer(folder_path):
+def load_parser_and_lexer(folder_path, grammar_name):
     """Dynamically load the generated MyGrammarLexer and MyGrammarParser."""
     sys.path.insert(0, folder_path)  # Ensure the folder is in the Python path
 
     try:
-        lexer_module = importlib.import_module("MyGrammarLexer")
-        parser_module = importlib.import_module("MyGrammarParser")
+        lexer = grammar_name + "Lexer"
+        parser = grammar_name + "Parser"
+        lexer_module = importlib.import_module(lexer)
+        parser_module = importlib.import_module(parser)
 
-        lexer_class = getattr(lexer_module, "MyGrammarLexer")
-        parser_class = getattr(parser_module, "MyGrammarParser")
+        lexer_class = getattr(lexer_module, lexer)
+        parser_class = getattr(parser_module, parser)
 
         return lexer_class, parser_class
     except ImportError as e:

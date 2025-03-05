@@ -19,8 +19,8 @@ from paredros_debugger.utils import find_grammar_file, rename_grammar_file, gene
 
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
-    def __init__(self, grammar_folder, input_file_path):
-        self.grammar_folder = os.path.abspath(grammar_folder)
+    def __init__(self, grammar_file_path, input_file_path):
+        self.grammar_file_path = os.path.abspath(grammar_file_path)
         self.input_file = os.path.abspath(input_file_path)
         self.input_text = None
         self.lexer_class = None
@@ -38,31 +38,41 @@ class ParseInformation:
         self.traversal = None
 
         # path to main grammar
-        if not os.path.exists(self.grammar_folder) or not os.path.isdir(self.grammar_folder):
-            raise FileNotFoundError(f"The folder {self.grammar_folder} does not exist or is not a directory.")
+        if not os.path.isfile(self.grammar_file_path):
+            print("Grammar file path", self.grammar_file_path)
+            raise FileNotFoundError(f"The file {self.grammar_file_path} does not exist.")
         
         # todo add support for multiple grammar files in folder
         # add grammar files to User grammar
-        grammar_file = find_grammar_file(self.grammar_folder)
-        if not grammar_file:
-            raise FileNotFoundError("No .g4 grammar file found in the provided folder.")
+        # grammar_file = find_grammar_file(self.grammar_folder)
+        #if not grammar_file:
+        #    raise FileNotFoundError("No .g4 grammar file found in the provided folder.")
         
         # rename_grammar_file(self.grammar_folder, grammar_file)
 
+        basename = os.path.basename(grammar_file_path)  # Extract grammar file name from path
+        print("basename", basename)
+        grammar_folder_path = os.path.dirname(grammar_file_path) # Extract grammar folder path
+        print("grammar_folder_path", grammar_folder_path)
+        name_without_ext = os.path.splitext(basename)[0]  # Extracts Grammar name
+        print("name_without_ext", name_without_ext)
+
         try:
-            generate_parser(self.grammar_folder)
+            generate_parser(grammar_folder_path, basename)
             print("Parser generated successfully.")
         except subprocess.CalledProcessError:
             print("Error: Failed to generate parser with ANTLR4.")
             sys.exit(1)
 
+
+
         try:
-            modify_generated_parser(self.grammar_folder + "/MyGrammarParser.py")
+            modify_generated_parser(grammar_folder_path + "/" + name_without_ext + "Parser.py")
             print("Parser modification completed.")
         except subprocess.CalledProcessError:
             print("Error: Failed to modify the generated parser.")
             sys.exit(1)
-        
+
         # load input string instead of file
         try:
             with open(os.path.join(self.input_file), "r", encoding="utf-8") as f:
@@ -73,7 +83,7 @@ class ParseInformation:
         print("======= Reading input file =======")
         self.input_text = input_text
         print("======= Load parser and lexer =======")
-        self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder)
+        self.lexer_class, self.parser_class = load_parser_and_lexer(grammar_folder_path, name_without_ext)
         print("======= Parsing input text =======")
         self.parse()
     
@@ -95,13 +105,13 @@ class ParseInformation:
         self.listener = DetailedParseListener(self.parser)
 
         # migrate to init
-        self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
-        grammar = UserGrammar()
-        grammar.add_grammar_file(self.grammar_file)
-        self.rules_dict = grammar.get_rules()
-        self.start_rule = get_start_rule(self.grammar_file)
+        # self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
+        # grammar = UserGrammar()
+        # grammar.add_grammar_file(self.grammar_file)
+        # self.rules_dict = grammar.get_rules()
+        self.start_rule = get_start_rule(self.grammar_file_path)
         ###
-        print("start rule", self.start_rule)
+        # print("start rule", self.start_rule)
         parse_method = getattr(self.parser, self.start_rule)
         tree = parse_method()
         self.parse_tree = Trees.toStringTree(tree, None, self.parser)

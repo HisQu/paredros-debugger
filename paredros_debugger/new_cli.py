@@ -79,20 +79,20 @@ def main():
     parser.add_argument("input_file_path", type=str, help="Path of the input file")
     args = parser.parse_args()
 
-    folder_path = os.path.abspath(args.grammar_folder_path)
+    grammar_path = os.path.abspath(args.grammar_folder_path)
     input_file = os.path.abspath(args.input_file_path)
 
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        print(f"Error: The folder {folder_path} does not exist or is not a directory.")
+    if not os.path.exists(grammar_path) or not os.path.isfile(grammar_path):
+        print(f"Error: The folder {grammar_path} does not exist or is not a directory.")
         sys.exit(1)
 
     if not os.path.exists(input_file) or not os.path.isfile(input_file):
         print(f"Error: The file {input_file} does not exist.")
         sys.exit(1)
 
-    print("folder path:" + folder_path)
+    print("folder path:" + grammar_path)
     print("input file:" + input_file)
-    visualize_parsing(folder_path, input_file)
+    visualize_parsing(grammar_path, input_file)
 
 if __name__ == "__main__":
     main()
