@@ -13,7 +13,7 @@ from antlr4.tree.Tree import ParseTreeWalker
 from antlr4.atn.PredictionMode import PredictionMode
 
 from paredros_debugger.LookaheadVisualizer import LookaheadVisualizer
-from paredros_debugger.DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
+from paredros_debugger.DetailedParseListener import DetailedParseListener
 from paredros_debugger.UserGrammar import UserGrammar
 from paredros_debugger.utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
