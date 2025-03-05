@@ -16,12 +16,12 @@ def modify_parser_file(filename):
 
     # Check if an import for CustomParser is already present
     for line in modified_lines:
-        if re.match(r'^\s*from\s+\S+\s+import\s+CustomParser|^\s*import\s+CustomParser', line):
+        if re.match(r'^\s*from\s+paredros_debugger\s+import\s+CustomParser|^\s*from\s+paredros_debugger\.CustomParser\s+import\s+CustomParser', line):
             import_added = True
             break
 
     if not import_added:
-        modified_lines.insert(0, 'from CustomParser import CustomParser\n')
+        modified_lines.insert(0, 'from paredros_debugger.CustomParser import CustomParser\n')
 
     with open(filename, 'w') as file:
         file.writelines(modified_lines)

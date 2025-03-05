@@ -1,5 +1,8 @@
-from typing import Dict, Optional
+from antlr4 import FileStream, CommonTokenStream, InputStream
+from antlr4.Token import CommonToken
+from typing import Dict, List, Optional, Set
 import os
+import re
 
 class GrammarRule:
     def __init__(self, name: str, content: str, start_line: int, end_line: int, start_pos: int, end_pos: int):
@@ -12,9 +15,10 @@ class GrammarRule:
 
 class GrammarFile:
     def __init__(self, path: str):
-        self.path = path
-        # Dict of rule name to rule content
-        self.rules: Dict[str, str] = {}
+        self.path = os.path.abspath(path)
+        self.directory = os.path.dirname(self.path)
+        self.rules: Dict[str, GrammarRule] = {}
+        self.imports: List[str] = []
         self._load_grammar()
     
     def _load_grammar(self):
@@ -39,6 +43,15 @@ class GrammarFile:
 
             # Account for the indent
             current_pos = len(line) - len(stripped_line) + 1
+
+            # Check for imports
+            if stripped_line.startswith('import'):
+                # Extract imported grammar name
+                import_match = re.match(r'import\s+([^;]+);?', stripped_line)
+                if import_match:
+                    imported_grammar = import_match.group(1).strip()
+                    self.imports.append(imported_grammar)
+                continue
 
             # Skip comments and grammar definition
             if not stripped_line or stripped_line.startswith('//') or stripped_line.startswith('grammar') or stripped_line.startswith('import'):
@@ -97,20 +110,50 @@ class GrammarFile:
 class UserGrammar:
     def __init__(self):
         self.grammar_files: Dict[str, GrammarFile] = {}
+        self.processed_files: Set[str] = set()
         
     def add_grammar_file(self, path: str) -> None:
-        """Add a grammar file to the collection"""
-        grammar_file = GrammarFile(path)
-        self.grammar_files[path] = grammar_file
+        """Add a grammar file and recursively process its imports"""
+        abs_path = os.path.abspath(path)
+        if abs_path in self.processed_files:
+            return
+            
+        self.processed_files.add(abs_path)
+        grammar_file = GrammarFile(abs_path)
+        self.grammar_files[abs_path] = grammar_file
         
-    def get_rules(self) -> Dict[str, str]:
+        # Process imports
+        base_dir = os.path.dirname(abs_path)
+        for imported in grammar_file.imports:
+            # Look for the imported grammar file
+            import_path = self._find_grammar_file(imported, base_dir)
+            if import_path:
+                self.add_grammar_file(import_path)
+            else:
+                raise FileNotFoundError(f"Imported grammar file not found: {imported}")
+    
+    def _find_grammar_file(self, grammar_name: str, search_dir: str) -> Optional[str]:
+        """Find a grammar file by name in the given directory"""
+        # Try exact name
+        exact_path = os.path.join(search_dir, grammar_name)
+        if os.path.exists(exact_path):
+            return exact_path
+            
+        # Try with .g4 extension
+        g4_path = os.path.join(search_dir, f"{grammar_name}.g4")
+        if os.path.exists(g4_path):
+            return g4_path
+            
+        return None
+    
+    def get_rules(self) -> Dict[str, GrammarRule]:
         """Get all rules from all grammar files"""
         all_rules = {}
         for grammar_file in self.grammar_files.values():
             all_rules.update(grammar_file.rules)
         return all_rules
-        
-    def get_rule_by_name(self, name: str) -> Optional[str]:
+    
+    def get_rule_by_name(self, name: str) -> Optional[GrammarRule]:
         """Get a specific rule by name"""
         for grammar_file in self.grammar_files.values():
             if name in grammar_file.rules:
