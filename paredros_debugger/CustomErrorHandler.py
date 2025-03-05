@@ -1,7 +1,31 @@
+"""
+CustomErrorHandler.py
+
+This module defines a custom error handling strategy for an ANTLR-based parser. It extends the 
+default ANTLR error handling mechanism to integrate with a custom parse traversal system.
+
+Classes:
+    - ErrorStrategy: A base error handling strategy with placeholder methods.
+    - CustomDefaultErrorStrategy: A subclass of DefaultErrorStrategy that implements custom 
+      error reporting and handling.
+
+Usage Example:
+    To use the custom error strategy in an ANTLR parser:
+
+        from antlr4.Parser import Parser
+        from CustomErrorHandler import CustomDefaultErrorStrategy
+
+        parser = Parser(...)
+        parser._errHandler = CustomDefaultErrorStrategy()
+
+Attributes:
+    None
+"""
+
 from antlr4.Token import Token
 from antlr4.atn.ATNState import ATNState
 from antlr4.error.Errors import RecognitionException
-from antlr4.atn.Transition import *
+from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.error.ErrorStrategy import DefaultErrorStrategy
 from antlr4.Parser import Parser
 
@@ -10,6 +34,9 @@ from paredros_debugger.ParseTraversal import ParseTraversal
 Parser = None
 
 class ErrorStrategy(object):
+    """
+    A base error handling strategy with placeholder methods.
+    """
 
     def reset(self, recognizer:Parser):
         pass
@@ -31,6 +58,9 @@ class ErrorStrategy(object):
 
 
 class CustomDefaultErrorStrategy(DefaultErrorStrategy):
+    """
+    A subclass of DefaultErrorStrategy that implements custom error reporting and handling.
+    """
 
     def __init__(self):
         super().__init__()
@@ -39,12 +69,22 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         self.error_occurred = False
 
     def reportError(self, recognizer:Parser, e:RecognitionException):
-        print(f"ERROR type: {type(e)}")    
+        """
+        Enhance default Report Error and report an error to the parser and record the error in the parse traversal.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            e (RecognitionException): The recognition exception that occurred.
+
+        Returns:
+            None
+        """
+        print(f"ERROR type: {type(e)}")
         # Only track first error
-        if not self.error_occurred:  
+        if not self.error_occurred:
             print(f"report called")
-            self.error_occurred = True 
-            
+            self.error_occurred = True
+
             # Create final error node to indicate where parsing failed
             state = recognizer._interp.atn.states[recognizer.state]
             rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
@@ -68,15 +108,36 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         super().reportError(recognizer, e)
 
     def recover(self, recognizer:Parser, e:RecognitionException):
-        print(f"Recovering")
+        """
+        Enhance standard recovery and attempt to recover from a recognition exception with
+        verbose logging.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            e (RecognitionException): The recognition exception that occurred.
+
+        Returns:
+            None
+        """
+        print("Recovering")
         print(f"[ErrorStrategy] Attempting recovery in state {recognizer.state} with token {e.offendingToken}")
         super().recover(recognizer, e)
 
     def sync(self, recognizer:Parser):
+        """
+        Enhance standard sync and attempt to synchronize the parser after a recognition exception
+        with verbose logging.
+
+        Args:
+            recognizer (Parser): The parser instance.
+
+        Returns:
+            None
+        """
         # Only add states if no error occurred
         if self.error_occurred:
             return
-        
+
         if not self.traversal.parser:
             self.traversal.set_parser(recognizer)
 
@@ -88,25 +149,10 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         readableToken = self._token_str(recognizer, currentToken)
         maxLookahead = 3
 
-        # Debug
-        # ---------------------------------------------------
-        # print(f"\n🔍 Sync point in {ruleName} at state {state})")
-        # print(f"   Current token: {readableToken}")
-
-        # alternatives = self.follow_transitions(state, recognizer)
-        
-        # if alternatives:
-        #     print("   Possible alternatives:")
-        #     for i, alt in enumerate(alternatives, 1):
-        #         print(f"      {i}: Matches: {alt}")
-
-        # print(f"   Lookahead: {self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead)}")
-        # print(f"   Consumed tokens: {self._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)}")
-        # ---------------------------------------------------
-
         # Track sync point
         current_token = recognizer.getCurrentToken()
-        lookahead = self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead)
+        lookahead = self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(),
+                                               maxLookahead)
         alternatives = self.follow_transitions(state, recognizer)
         input_text = self._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)
 
@@ -135,86 +181,110 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         super().sync(recognizer)
 
     def follow_transitions(self, state, recognizer, visited=None):
-            # Necessary to avoid infinite recursion
-            if visited is None:
-                visited = set()
-                    
-            if state.stateNumber in visited:
-                return []
-                    
-            visited.add(state.stateNumber)
-            results = []
+        """
+        Enhance the follow transitions method to return a list of possible transitions from a
+        given state.
 
-            # Rule stop special case
-            if state.stateType == ATNState.RULE_STOP:
-                results.append((state.stateNumber, ["Exit"]))
-                return results
+        Args:
+            state (ATNState): The current ATN state.
+            recognizer (Parser): The parser instance.
+            visited (set): A set of visited states to avoid infinite recursion.
 
-            for transition in state.transitions:
-                # Create new visited set for each path
-                path_visited = visited.copy()
-                tokens = []
+        Returns:
+            list: A list of possible transitions from the given state.
+        """
+        # Necessary to avoid infinite recursion
+        if visited is None:
+            visited = set()
 
-                # Handle atom transitions (single token)
-                if isinstance(transition, AtomTransition):
-                    # Hier nutzt man label_ anstatt label, danke fürs debuggen antlr
-                    label = transition.label_
-                    # First try symbolic names if literal is invalid
-                    if (label < len(recognizer.literalNames) and 
-                        recognizer.literalNames[label] == "<INVALID>" and 
-                        label < len(recognizer.symbolicNames)):
-                        tokens.append(recognizer.symbolicNames[label])
-                    # Then try literal names
-                    elif (label < len(recognizer.literalNames) and 
-                        recognizer.literalNames[label]):
-                        tokens.append(recognizer.literalNames[label])
-                    # Finally fall back to symbolic names
-                    elif (label < len(recognizer.symbolicNames) and 
-                        recognizer.symbolicNames[label]):
-                        tokens.append(recognizer.symbolicNames[label])
-                    
-                    if tokens:
-                        results.append((state.stateNumber, tokens))
-                        continue
-                        
-                # Handle set transitions (multiple tokens)
-                elif isinstance(transition, SetTransition):
-                    for t in transition.label:
-                        # First try symbolic names if literal is invalid
-                        if (t < len(recognizer.literalNames) and 
-                            recognizer.literalNames[t] == "<INVALID>" and 
-                            t < len(recognizer.symbolicNames)):
-                            tokens.append(recognizer.symbolicNames[t])
-                        # Then try literal names
-                        elif (t < len(recognizer.literalNames) and 
-                            recognizer.literalNames[t]):
-                            tokens.append(recognizer.literalNames[t])
-                        # Finally fall back to symbolic names
-                        elif (t < len(recognizer.symbolicNames) and 
-                            recognizer.symbolicNames[t]):
-                            tokens.append(recognizer.symbolicNames[t])
-                    
-                    if tokens:
-                        results.append((state.stateNumber, tokens))
-                        continue
+        if state.stateNumber in visited:
+            return []
 
-                # Handle rule transitions
-                elif isinstance(transition, RuleTransition):
-                    ruleName = recognizer.ruleNames[transition.ruleIndex] if transition.ruleIndex < len(recognizer.ruleNames) else "unknown"
-                    results.append((transition.target.stateNumber, ["Rule " + ruleName]))
-                    continue
+        visited.add(state.stateNumber)
+        results = []
 
-                # Only follow epsilon transitions if we haven't found a match
-                if not tokens:
-                    next_results = self.follow_transitions(transition.target, recognizer, path_visited)
-                    if next_results:
-                        results.extend(next_results)
-
+        # Rule stop special case
+        if state.stateType == ATNState.RULE_STOP:
+            results.append((state.stateNumber, ["Exit"]))
             return results
 
+        for transition in state.transitions:
+            # Create new visited set for each path
+            path_visited = visited.copy()
+            tokens = []
+
+            # Handle atom transitions (single token)
+            if isinstance(transition, AtomTransition):
+                # Hier nutzt man label_ anstatt label, danke fürs debuggen antlr
+                label = transition.label_
+                # First try symbolic names if literal is invalid
+                if (label < len(recognizer.literalNames) and 
+                    recognizer.literalNames[label] == "<INVALID>" and 
+                    label < len(recognizer.symbolicNames)):
+                    tokens.append(recognizer.symbolicNames[label])
+                # Then try literal names
+                elif (label < len(recognizer.literalNames) and 
+                    recognizer.literalNames[label]):
+                    tokens.append(recognizer.literalNames[label])
+                # Finally fall back to symbolic names
+                elif (label < len(recognizer.symbolicNames) and 
+                    recognizer.symbolicNames[label]):
+                    tokens.append(recognizer.symbolicNames[label])
+
+                if tokens:
+                    results.append((state.stateNumber, tokens))
+                    continue
+
+            # Handle set transitions (multiple tokens)
+            elif isinstance(transition, SetTransition):
+                for t in transition.label:
+                    # First try symbolic names if literal is invalid
+                    if (t < len(recognizer.literalNames) and 
+                        recognizer.literalNames[t] == "<INVALID>" and 
+                        t < len(recognizer.symbolicNames)):
+                        tokens.append(recognizer.symbolicNames[t])
+                    # Then try literal names
+                    elif (t < len(recognizer.literalNames) and 
+                        recognizer.literalNames[t]):
+                        tokens.append(recognizer.literalNames[t])
+                    # Finally fall back to symbolic names
+                    elif (t < len(recognizer.symbolicNames) and 
+                        recognizer.symbolicNames[t]):
+                        tokens.append(recognizer.symbolicNames[t])
+
+                if tokens:
+                    results.append((state.stateNumber, tokens))
+                    continue
+
+            # Handle rule transitions
+            elif isinstance(transition, RuleTransition):
+                ruleName = recognizer.ruleNames[transition.ruleIndex] if transition.ruleIndex < len(recognizer.ruleNames) else "unknown"
+                results.append((transition.target.stateNumber, ["Rule " + ruleName]))
+                continue
+
+            # Only follow epsilon transitions if we haven't found a match
+            if not tokens:
+                next_results = self.follow_transitions(transition.target, recognizer, path_visited)
+                if next_results:
+                    results.extend(next_results)
+
+        return results
+
+    ####################
     # Helper functions
-    # Returns the set of tokens that can follow the current state in the ATN
+    ####################
     def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
+        """
+        Get the lookahead tokens for the current state in the ATN.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            input (TokenStream): The token stream.
+            lookahead_depth (int): The depth of lookahead.
+
+        Returns:
+            str: A string representation of the lookahead tokens
+        """
         tokens = []
         for i in range(1, lookahead_depth + 1):
             token = input.LT(i)
@@ -223,45 +293,72 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             tokens.append(self._token_str(recognizer, token))
         return ", ".join(tokens)
 
-    # Helper for getting one token as string
     def _token_str(self, recognizer, token):
+        """
+        Return a string representation of a token.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            token (Token): The token to represent.
+
+        Returns:
+            str: A string representation of the token.
+        """
         name = recognizer.symbolicNames[token.type]
         if name == "<INVALID>":
             return f"Literal ('{token.text}')"
         else:
             return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
-        
-    # Helper for getting the already consumed input 
+
     def _get_consumed_tokens(self, input, lookahead_depth):
+        """
+        Get the consumed tokens for the current state in the ATN.
+
+        Args:
+            input (TokenStream): The token stream.
+            lookahead_depth (int): The depth of lookahead.
+        
+        Returns:
+            str: A string representation of the consumed tokens
+        """
         tokens = []
         for i in range(input.index):
             token = input.get(i)
             if token.type != Token.EOF:
                 tokens.append(token.text)
-        
+
         # How many tokens after the consumed tokens should be shown
         lookahead = []
         for i in range(1, lookahead_depth + 1):
             t = input.LT(i)
             if t and t.type != Token.EOF:
                 lookahead.append(t.text)
-        
+
         # Cursermarker for consumed tokens
         consumed = " ".join(tokens) + "⏺"
         if lookahead:
             consumed += " " + " ".join(lookahead)
-            
+
         return consumed
 
 
-    # called by the Parser upon a token match
     def _handle_token_consume(self, recognizer, token):
+        """
+        Function to handle token consumption and update the decision tree.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            token (Token): The consumed token.
+
+        Returns:
+            None
+        """
         if self.error_occurred:
             return
-        
+
         state = recognizer._interp.atn.states[recognizer.state]
         maxLookahead = 3
-        
+
         ruleIndex = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
         ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
         token_str = self._token_str(recognizer, token)
@@ -272,7 +369,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             if self.current_node.matches_token(token_str):
                 # We matched a token - mark it as chosen path
                 self.current_node.chosen = self.current_node.get_matching_alternative(token_str)
-        
+
         # creates a new node in the traversal 
         node = self.traversal.add_decision_point(
             state.stateNumber,
@@ -284,13 +381,20 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             "Token consume"
         )
         node.chosen = 1 # token matches are single pathed, the other cases are handled in sync
-    
-        
+
         self.current_node = node
 
-    # called by the Parser upon a rule entry
     def _handle_rule_entry(self, recognizer, rule_name):
-        """Handle rule entry and update decision tree"""
+        """
+        Handle rule entry and update decision tree
+        
+        Args:
+            recognizer (Parser): The parser instance.
+            rule_name (str): The name of the rule that was entered.
+
+        Returns:
+            None
+        """
         if self.error_occurred:
             return
             
@@ -330,7 +434,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
                 # No exit alternative found
                 node.chosen = -1
         self.current_node = node
-        
+
 
     # Das hier ist ein wenig missleading, da es für den aktuellen state die nachfolger bestimmt (nicht zwingend direkt der exit)
     # Es wäre besser wenn wir die alternativen für den nachfolger aufrufen oder einfach hardcoden dass es nur eine alternative (exit) gibt
@@ -338,7 +442,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         """Handle rule exit and update decision tree"""
         if self.error_occurred:
             return
-            
+
         if self.current_node and self.current_node.chosen == -1:
             # Check if any alternative matches this rule exit
             for alt_idx, (target_state, tokens) in enumerate(self.current_node.possible_alternatives):
@@ -361,4 +465,3 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         )
         node.chosen = 1
         self.current_node = node
-                
