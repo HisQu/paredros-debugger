@@ -1,5 +1,5 @@
 import importlib
-from modify_grammar_parser_file import modify_parser_file
+from paredros_debugger.modify_grammar_parser_file import modify_parser_file
 import os
 import subprocess
 import sys

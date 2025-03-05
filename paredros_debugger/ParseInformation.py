@@ -12,12 +12,10 @@ from antlr4.tree.Trees import Trees
 from antlr4.tree.Tree import ParseTreeWalker
 from antlr4.atn.PredictionMode import PredictionMode
 
-from LookaheadVisualizer import LookaheadVisualizer
-from DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
-from UserGrammar import UserGrammar
-from ParseNode import ParseNode
-
-from utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
+from paredros_debugger.LookaheadVisualizer import LookaheadVisualizer
+from paredros_debugger.DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
+from paredros_debugger.UserGrammar import UserGrammar
+from paredros_debugger.utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""

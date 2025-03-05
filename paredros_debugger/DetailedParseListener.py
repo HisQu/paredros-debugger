@@ -1,4 +1,5 @@
 from antlr4 import ParseTreeListener
+
 def resolveLiteralOrSymbolicName(parser, token):
     name = None
     if parser.symbolicNames:

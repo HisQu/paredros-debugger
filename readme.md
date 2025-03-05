@@ -14,7 +14,7 @@ This tool helps visualize ANTLR4 parser lookahead and decision-making process fo
    your Input Text:
 
 ```sh
-python cli.py <folder_path_grammar> <path_to_input.txt>
+python -m paredros_debugger.new_cli <folder_with_grammar> <path_to_input.txt>
 ```
 
 

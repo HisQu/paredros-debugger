@@ -1,4 +1,4 @@
-from ParseNode import ParseNode
+from paredros_debugger.ParseNode import ParseNode
 
 class ParseTraversal:
     def __init__(self):

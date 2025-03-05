@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from ParseInformation import ParseInformation
+from paredros_debugger.ParseInformation import ParseInformation
 
 def display_node(node, depth=0, is_alternative=False, rules_dict=None):
     """Display node information without REPL interaction."""
