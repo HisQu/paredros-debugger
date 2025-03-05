@@ -39,14 +39,17 @@ class ParseInformation:
         self.input_stream = None
         self.traversal = None
 
+        # path to main grammar
         if not os.path.exists(self.grammar_folder) or not os.path.isdir(self.grammar_folder):
             raise FileNotFoundError(f"The folder {self.grammar_folder} does not exist or is not a directory.")
         
+        # todo add support for multiple grammar files in folder
+        # add grammar files to User grammar
         grammar_file = find_grammar_file(self.grammar_folder)
         if not grammar_file:
             raise FileNotFoundError("No .g4 grammar file found in the provided folder.")
         
-        rename_grammar_file(self.grammar_folder, grammar_file)
+        # rename_grammar_file(self.grammar_folder, grammar_file)
 
         try:
             generate_parser(self.grammar_folder)
@@ -62,6 +65,7 @@ class ParseInformation:
             print("Error: Failed to modify the generated parser.")
             sys.exit(1)
         
+        # load input string instead of file
         try:
             with open(os.path.join(self.input_file), "r", encoding="utf-8") as f:
              input_text = f.read()
@@ -73,9 +77,9 @@ class ParseInformation:
         print("======= Load parser and lexer =======")
         self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder)
         print("======= Parsing input text =======")
-        self.root = self._parse()
+        self.parse()
     
-    def _parse(self):
+    def parse(self):
         """Runs the parser on the given input text and returns the root parse tree node."""
         print("input stream")
         self.input_stream = InputStream(self.input_text)
@@ -92,20 +96,21 @@ class ParseInformation:
         self.walker = ParseTreeWalker()
         self.listener = DetailedParseListener(self.parser)
 
+        # migrate to init
         self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
         grammar = UserGrammar()
         grammar.add_grammar_file(self.grammar_file)
         self.rules_dict = grammar.get_rules()
         self.start_rule = get_start_rule(self.grammar_file)
+        ###
         print("start rule", self.start_rule)
         parse_method = getattr(self.parser, self.start_rule)
         tree = parse_method()
         self.parse_tree = Trees.toStringTree(tree, None, self.parser)
-        print("Final Parse Tree")   
+        print("Final Parse Tree")
         print(self.parse_tree)
-        
+
         self.traversal = self.parser._errHandler.traversal
         merged_groups = self.traversal.group_and_merge()
         self.traversal.replace_merged_nodes(merged_groups)
         self.traversal._fix_node_ids()
-        
