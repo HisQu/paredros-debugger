@@ -19,8 +19,9 @@ from paredros_debugger.utils import find_grammar_file, rename_grammar_file, gene
 
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
-    def __init__(self, grammar_folder, input_file_path):
-        self.grammar_folder = os.path.abspath(grammar_folder)
+    def __init__(self, grammar_file_path, input_file_path):
+        self.grammar_file = os.path.abspath(grammar_file_path)
+        self.grammar_folder = os.path.dirname(self.grammar_file)
         self.input_file = os.path.abspath(input_file_path)
         self.input_text = None
         self.lexer_class = None
@@ -28,7 +29,6 @@ class ParseInformation:
         self.root = None
         self.walker = None
         self.listener = None
-        self.grammar_file = None
         self.rules_dict = None
         self.parse_tree = None
         self.tokens = None
@@ -37,14 +37,12 @@ class ParseInformation:
         self.input_stream = None
         self.traversal = None
 
-        if not os.path.exists(self.grammar_folder) or not os.path.isdir(self.grammar_folder):
-            raise FileNotFoundError(f"The folder {self.grammar_folder} does not exist or is not a directory.")
-        
-        grammar_file = find_grammar_file(self.grammar_folder)
-        if not grammar_file:
-            raise FileNotFoundError("No .g4 grammar file found in the provided folder.")
-        
-        rename_grammar_file(self.grammar_folder, grammar_file)
+        if not os.path.exists(self.grammar_file) or not os.path.isfile(self.grammar_file):
+            raise FileNotFoundError(f"The grammar file {self.grammar_file} does not exist or is not a file.")
+
+        self.grammar = UserGrammar()
+        self.grammar.add_grammar_file(self.grammar_file)
+        self.rules_dict = self.grammar.get_rules()
 
         try:
             generate_parser(self.grammar_folder)
@@ -54,7 +52,7 @@ class ParseInformation:
             sys.exit(1)
 
         try:
-            modify_generated_parser(self.grammar_folder + "/MyGrammarParser.py")
+            modify_generated_parser(os.path.join(self.grammar_folder, "MyGrammarParser.py"))
             print("Parser modification completed.")
         except subprocess.CalledProcessError:
             print("Error: Failed to modify the generated parser.")
@@ -62,7 +60,7 @@ class ParseInformation:
         
         try:
             with open(os.path.join(self.input_file), "r", encoding="utf-8") as f:
-             input_text = f.read()
+                input_text = f.read()
         except FileNotFoundError as e:
             raise FileNotFoundError(f"The file {self.input_file} does not exist.") from e
         
@@ -90,10 +88,6 @@ class ParseInformation:
         self.walker = ParseTreeWalker()
         self.listener = DetailedParseListener(self.parser)
 
-        self.grammar_file = os.path.join(self.grammar_folder, "MyGrammar.g4")
-        grammar = UserGrammar()
-        grammar.add_grammar_file(self.grammar_file)
-        self.rules_dict = grammar.get_rules()
         self.start_rule = get_start_rule(self.grammar_file)
         print("start rule", self.start_rule)
         parse_method = getattr(self.parser, self.start_rule)

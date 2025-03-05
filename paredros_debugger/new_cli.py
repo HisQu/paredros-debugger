@@ -50,17 +50,16 @@ def handle_repl_interaction(node, parse_info, depth=0, rules_dict=None):
         elif node.next_node:
             handle_repl_interaction(node.next_node, parse_info, depth, rules_dict)
 
-def visualize_parsing(grammar_folder, input_file):
+def visualize_parsing(grammar_file, input_file):
     """Visualizes the parsing process for the given input file."""
     try:
         print(f"\n=== Parsing {input_file} ===")
-        parse_info = ParseInformation(grammar_folder , input_file)
+        parse_info = ParseInformation(grammar_file, input_file)
         print("=== Parsing completed ===")
         print(parse_info.traversal.root)
         print("=== REPL Interaction ===")
         # Start REPL interaction
         handle_repl_interaction(parse_info.traversal.root, parse_info, rules_dict=parse_info.rules_dict)
-        # todo: add repl like logic
 
     except Exception as e:
         print(f"\n💥 Parsing failed: {str(e)}")
@@ -75,24 +74,24 @@ def traverse_tree(node, depth=0):
 def main():
     """Main entry point for the CLI tool."""
     parser = argparse.ArgumentParser(description="Process ANTLR4 grammar and modify parser.")
-    parser.add_argument("grammar_folder_path", type=str, help="Path to the folder containing the .g4 Grammar file")
+    parser.add_argument("grammar_file_path", type=str, help="Path to the main .g4 Grammar file")
     parser.add_argument("input_file_path", type=str, help="Path of the input file")
     args = parser.parse_args()
 
-    folder_path = os.path.abspath(args.grammar_folder_path)
+    grammar_file = os.path.abspath(args.grammar_file_path)
     input_file = os.path.abspath(args.input_file_path)
 
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        print(f"Error: The folder {folder_path} does not exist or is not a directory.")
+    if not os.path.exists(grammar_file) or not os.path.isfile(grammar_file):
+        print(f"Error: The grammar file {grammar_file} does not exist or is not a file.")
         sys.exit(1)
 
     if not os.path.exists(input_file) or not os.path.isfile(input_file):
         print(f"Error: The file {input_file} does not exist.")
         sys.exit(1)
 
-    print("folder path:" + folder_path)
+    print("grammar file:" + grammar_file)
     print("input file:" + input_file)
-    visualize_parsing(folder_path, input_file)
+    visualize_parsing(grammar_file, input_file)
 
 if __name__ == "__main__":
     main()

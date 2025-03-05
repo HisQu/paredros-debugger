@@ -10,11 +10,11 @@ This tool helps visualize ANTLR4 parser lookahead and decision-making process fo
 
 ## Setup and Usage CLI Tool
 
-1. Run the Command line tool with specified path to the folder containing your grammar and a path to a text file contaning
+1. Run the Command line tool with specified path to main grammar file and a path to a text file contaning
    your Input Text:
 
 ```sh
-python -m paredros_debugger.new_cli <folder_with_grammar> <path_to_input.txt>
+python -m paredros_debugger.new_cli <path_to_main_grammar.g4> <path_to_input.txt>
 ```
 
 
