@@ -1,179 +1,150 @@
+"""
+This module contains the CLI tool for visualizing the parsing process of a given input file in 
+the command line. Using the tool, the user can interact with the parse tree and explore the 
+parsing process step by step.
+
+Example:
+    $ python -m paredros_debugger.cli <path_to_main_grammar_file> <path_to_input_file>
+"""
+
 import argparse
 import os
-import subprocess
 import sys
+from paredros_debugger.ParseInformation import ParseInformation
 
-from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker
-from antlr4.atn.PredictionMode import PredictionMode
-from antlr4.tree.Trees import Trees
+def display_node(node, depth=0, is_alternative=False, rules_dict=None):
+    """
+    Display information about the current node in the parse tree.
 
-from .LookaheadVisualizer import LookaheadVisualizer
-from paredros_debugger.DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
-from paredros_debugger.UserGrammar import UserGrammar
-from paredros_debugger.utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
+    Args:
+        node (ParseNode): The current node to display information about.
+        depth (int): The depth of the current node in the parse tree.
+        is_alternative (bool): Whether the current node is an alternative.
+        rules_dict (dict): A dictionary containing the rules of the grammar.
 
+    Returns:
+        None
+    """
+    indent = "  " * depth
+    prefix = "↳" if is_alternative else "●"
 
-def visualize_parsing_cli(folder_path, input_text):
-    """Visualizes the parsing process for the given input text."""
-    lexer_class, parser_class = load_parser_and_lexer(folder_path)
-    input_stream = InputStream(input_text)
-    lexer = lexer_class(input_stream)
-    tokens = CommonTokenStream(lexer)
-    parser = parser_class(tokens)
+    if node.has_error:
+        print(f"\n{indent}{prefix} [ID {node.get_unique_identifier()}] ErrorNode!")
+    else:
+        print(f"\n{indent}{prefix} [ID {node.get_unique_identifier()}]")
 
-    # Configure for lookahead visualization
-    parser._interp = LookaheadVisualizer(parser)
-    parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
+    print("\n=== General Informations ===")
+    print(f"{indent}  Node type: {node.node_type}")
+    print(f"{indent}  State: {node.state}")
+    print(f"{indent}  Rulename: {node.rule_name}")
+    if rules_dict:
+        print(f"{indent}  Rule: {rules_dict.get(node.rule_name).content}")
+    print(f"{indent}  Token: {node.current_token}")
+    print(f"{indent}  Input: {node.input_text}")
 
-    # Set up listeners
-    parser.removeErrorListeners()
-    walker = ParseTreeWalker()
-    listener = DetailedParseListener(parser)
+    if node.possible_alternatives:
+        print(f"{indent}  Possible transitions:")
+        for i, (target_state, matches) in enumerate(node.possible_alternatives, 1):
+            print(f"{indent}    {i}: Matches: ({target_state}, {matches})")
+        print(f"{indent}  Chosen: Alternative {node.chosen}")
 
-    # Setup grammar file
-    grammar_file = os.path.join(folder_path, "MyGrammar.g4")
-    grammar = UserGrammar()
-    grammar.add_grammar_file(grammar_file)
-    rules_dict = grammar.get_rules()
+def handle_repl_interaction(node, parse_info, depth=0, rules_dict=None):
+    """
+    Handle the REPL interaction with the user.
+    
+    Args:
+        node (ParseNode): The current node to interact with.
+        parse_info (ParseInformation): The ParseInformation object.
+        depth (int): The depth of the current node in the parse tree.
+        rules_dict (dict): A dictionary containing the rules of the grammar.
 
-    print("=== Token Stream ===")
-    tokens.fill()
-    for token in tokens.tokens[:-1]:  # Skip EOF
-        _t = resolveLiteralOrSymbolicName(parser, token)
-        print(f"{_t}")
-        if _t.startswith("Literal:"):
-            print(f"[ LIT] {'':<15} '{token.text}'")
-        else:
-            # Add safety check for symbolic names
-            symbol_name = ''
-            if token.type >= 0 and token.type < len(lexer.symbolicNames) and lexer.symbolicNames[token.type]:
-                symbol_name = lexer.symbolicNames[token.type]
-            else:
-                symbol_name = f"<T{token.type}>"
-            print(f"[{token.type:4}] {symbol_name:15} '{token.text}'")
+    Returns:
+        None
+    """
+    display_node(node, depth, rules_dict=rules_dict)
+    print("=== User Interaction ===")
+    direction = input("  Step to parent or child (p/c): ")
+    if direction == "p":
+        if node.parent:
+            handle_repl_interaction(node.parent, parse_info, depth, rules_dict)
+    else:
+        if node.possible_alternatives and len(node.possible_alternatives) > 1:
+            user_io = f"Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: "
+            chosen_alternative = input(user_io)
+            if chosen_alternative not in ["0", ""]:
+                # Use parse_info.traversal to access expand_alternative
+                expanded_alt_node = parse_info.traversal.expand_alternative(node,
+                                                                            int(chosen_alternative))
+                expanded_alt_node.is_on_parse_tree = False
+                handle_repl_interaction(expanded_alt_node, parse_info, depth, rules_dict)
+            elif node.next_node:
+                handle_repl_interaction(node.next_node, parse_info, depth, rules_dict)
+        elif node.next_node:
+            handle_repl_interaction(node.next_node, parse_info, depth, rules_dict)
 
-    print("\n=== Parsing Process ===")
+def visualize_parsing(grammar_file, input_file):
+    """
+    Visualize the parsing process of the input file using the REPL interaction.
+    
+    Args:
+        grammar_file (str): The path to the main .g4 Grammar file.
+        input_file (str): The path of the input file.
+
+    Returns:
+        None
+    """
     try:
-        start_rule = get_start_rule(grammar_file)
-        print(f"Starting rule: {start_rule}")
-        parse_method = getattr(parser, start_rule)
-        tree = parse_method()
-
-        print("\n=== Final Parse Tree ===")
-        print(Trees.toStringTree(tree, None, parser))
-
-        print("\n=== Rule Execution Trace ===")
-        walker.walk(listener, tree)
-
-        print("\n=== Parse Traversal Analysis ===")
-        traversal = parser._errHandler.traversal
-
-        def display_node(node, depth=0, is_alternative=False, rules_dict=None):
-            """Display node information without REPL interaction."""
-            indent = "  " * depth
-            prefix = "↳" if is_alternative else "●"
-
-            if node.has_error:
-                print(f"\n{indent}{prefix} [ID {node.get_unique_identifier()}] ErrorNode!")
-            else:
-                print(f"\n{indent}{prefix} [ID {node.get_unique_identifier()}]")
-
-            print("\n=== General Informations ===")
-            print(f"{indent}  Node type: {node.node_type}")
-            print(f"{indent}  State: {node.state}")
-            print(f"{indent}  Rulename: {node.rule_name}")
-            print(f"{indent}  Rule: {rules_dict.get(node.rule_name).content}")
-            print(f"{indent}  Token: {node.current_token}")
-            print(f"{indent}  Input: {node.input_text}")
-            print("=== Possible Alternatives ===")
-
-            if node.possible_alternatives:
-                print(f"{indent}  Possible transitions:")
-                for i, (target_state, matches) in enumerate(node.possible_alternatives, 1):
-                    print(f"{indent}    {i}: Matches: ({target_state}, {matches})")
-
-        def handle_repl_interaction(node, traversal, depth=0, rules_dict=None):
-            """Handle REPL interaction for node traversal."""
-            display_node(node, depth, rules_dict=rules_dict)
-            print("=== User Interaction ===")
-            direction = input(f"  Step to parent or child (p/c): ")
-            if direction == "p":
-                if node.parent:
-                    handle_repl_interaction(node.parent, traversal, depth, rules_dict)
-            else:
-                if node.possible_alternatives and len(node.possible_alternatives) > 1:
-                    user_io = f"Choose alternative (1-{len(node.possible_alternatives)}) or 0 for next: "
-                    chosen_alternative = input(user_io)
-                    if chosen_alternative not in ["0", ""]:
-                        expanded_alt_node = traversal.expand_alternative(node, int(chosen_alternative))
-                        expanded_alt_node.is_on_parse_tree = False
-                        handle_repl_interaction(expanded_alt_node, traversal, depth, rules_dict)
-                    elif node.next_node:
-                        handle_repl_interaction(node.next_node, traversal, depth, rules_dict)
-                elif node.next_node:
-                    handle_repl_interaction(node.next_node, traversal, depth, rules_dict)
-
-        print("\n=== After Cleanup ===")
-        merged_groups = traversal.group_and_merge()
-        traversal.replace_merged_nodes(merged_groups)
-        traversal._fix_node_ids()
-
-        if traversal.root:
-            handle_repl_interaction(traversal.root, traversal, rules_dict=rules_dict)
-
+        print(f"\n=== Parsing {input_file} ===")
+        parse_info = ParseInformation(grammar_file, input_file)
+        print("=== Parsing completed ===")
+        print(parse_info.traversal.root)
+        print("=== REPL Interaction ===")
+        # Start REPL interaction
+        handle_repl_interaction(parse_info.traversal.root, parse_info,
+                                rules_dict=parse_info.rules_dict)
 
     except Exception as e:
         print(f"\n💥 Parsing failed: {str(e)}")
 
+def traverse_tree(node, depth=0):
+    """
+    Traverse the parse tree and print the nodes in a tree-like structure.
+
+    Args:
+        node (ParseNode): The current node to traverse.
+        depth (int): The depth of the current node in the parse tree.
+
+    Returns:
+        None
+    """
+    indent = "  " * depth
+    print(f"{indent}- {node.get_text()}")
+    for child in node.get_children():
+        traverse_tree(child, depth + 1)
+
 def main():
-    """Main entry point for the CLI tool."""
+    """
+    Main function for the CLI tool.
+    """
     parser = argparse.ArgumentParser(description="Process ANTLR4 grammar and modify parser.")
-    parser.add_argument(dest="grammar_folder_path", type=str,
-                        help="Path to the folder containing the .g4 Grammar file")
-    parser.add_argument(dest="input_file_path", type=str,
-                        help="Path of the input file")
+    parser.add_argument("grammar_file_path", type=str, help="Path to the main .g4 Grammar file")
+    parser.add_argument("input_file_path", type=str, help="Path of the input file")
     args = parser.parse_args()
 
-    folder_path = os.path.abspath(args.grammar_folder_path)
+    grammar_file = os.path.abspath(args.grammar_file_path)
     input_file = os.path.abspath(args.input_file_path)
 
-    if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-        print(f"Error: The folder {folder_path} does not exist or is not a directory.")
+    if not os.path.exists(grammar_file) or not os.path.isfile(grammar_file):
+        print(f"Error: The grammar file {grammar_file} does not exist or is not a file.")
         sys.exit(1)
 
-    grammar_file = find_grammar_file(folder_path)
-    if not grammar_file:
-        print("Error: No .g4 grammar file found in the provided folder.")
+    if not os.path.exists(input_file) or not os.path.isfile(input_file):
+        print(f"Error: The file {input_file} does not exist.")
         sys.exit(1)
 
-    renamed_path = rename_grammar_file(folder_path, grammar_file)
-    print(f"Renamed grammar file to: {renamed_path}")
-
-    try:
-        generate_parser(folder_path)
-        print("Parser generated successfully.")
-    except subprocess.CalledProcessError:
-        print("Error: Failed to generate parser with ANTLR4.")
-        sys.exit(1)
-
-    try:
-        modify_generated_parser(folder_path + "/MyGrammarParser.py")
-        print("Parser modification completed.")
-    except subprocess.CalledProcessError:
-        print("Error: Failed to modify the generated parser.")
-        sys.exit(1)
-
-    # with open("input.txt", "r") as file:
-    #     input_text = file.read()
-    # visualize_parsing(input_text)
-
-    try:
-        with open(os.path.join(folder_path, input_file), "r", encoding="utf-8") as f:
-            input_text = f.read()
-        visualize_parsing_cli(folder_path=folder_path, input_text=input_text)
-    except Exception as e:
-        print(f"Error during parsing: {e}")
-        sys.exit(1)
+    print("grammar file:" + grammar_file)
+    print("input file:" + input_file)
+    visualize_parsing(grammar_file, input_file)
 
 if __name__ == "__main__":
     main()
