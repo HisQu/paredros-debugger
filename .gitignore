@@ -14,3 +14,4 @@ MyGrammar.g4
 output.txt
 .venv/*
 !DetailedParseListener.py
+TestGrammar.g4
