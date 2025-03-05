@@ -31,3 +31,13 @@ For every step of the grammar you get first prompted if you want to visit a chil
 Choose accordingly. Hitting Return without input will step to a child by default.
 Then you get prompted to choose between to dive into an alternative node, then you have to enter a number in the range 1-X.
 if you want the next node of the parse based on input enter 0. Hitting Return without input will step into the next node on the parsetree on default.
+
+## Installing for development
+The package can be installed to be editable, which is quite handy.
+
++ Source your virtual environment
++ run the following command (and of course replace `~/paredros-debugger` with your package location)
+
+```shell
+python3 -m pip install --editable ~/paredros-debugger
+```
