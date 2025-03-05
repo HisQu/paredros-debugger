@@ -1,15 +1,11 @@
-import sys
-from antlr4.IntervalSet import IntervalSet
-
 from antlr4.Token import Token
 from antlr4.atn.ATNState import ATNState
-from antlr4.error.Errors import RecognitionException, NoViableAltException, InputMismatchException, \
-    FailedPredicateException, ParseCancellationException
+from antlr4.error.Errors import RecognitionException
 from antlr4.atn.Transition import *
 from antlr4.error.ErrorStrategy import DefaultErrorStrategy
 from antlr4.Parser import Parser
 
-from ParseTraversal import ParseTraversal
+from paredros_debugger.ParseTraversal import ParseTraversal
 
 Parser = None
 

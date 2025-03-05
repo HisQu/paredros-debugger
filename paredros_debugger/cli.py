@@ -3,19 +3,14 @@ import os
 import subprocess
 import sys
 
-
 from antlr4 import InputStream, CommonTokenStream, ParseTreeWalker
 from antlr4.atn.PredictionMode import PredictionMode
 from antlr4.tree.Trees import Trees
 
-from LookaheadVisualizer import LookaheadVisualizer
-from DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
-from CustomErrorHandler import CustomDefaultErrorStrategy
-from ParseTraversal import ParseTraversal
-from ParseNode import ParseNode
-
-from UserGrammar import UserGrammar
-from utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
+from .LookaheadVisualizer import LookaheadVisualizer
+from paredros_debugger.DetailedParseListener import DetailedParseListener, resolveLiteralOrSymbolicName
+from paredros_debugger.UserGrammar import UserGrammar
+from paredros_debugger.utils import find_grammar_file, rename_grammar_file, generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
 
 def visualize_parsing_cli(folder_path, input_text):

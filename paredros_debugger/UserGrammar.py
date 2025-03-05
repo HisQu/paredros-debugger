@@ -1,6 +1,4 @@
-from antlr4 import FileStream, CommonTokenStream, InputStream
-from antlr4.Token import CommonToken
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import os
 
 class GrammarRule:

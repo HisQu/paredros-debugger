@@ -1,6 +1,6 @@
 from antlr4 import ParserRuleContext
 from antlr4.Parser import Parser
-from CustomErrorHandler import CustomDefaultErrorStrategy
+from paredros_debugger.CustomErrorHandler import CustomDefaultErrorStrategy
 
 class CustomParser(Parser):
     def __init__(self, input, output = ...):

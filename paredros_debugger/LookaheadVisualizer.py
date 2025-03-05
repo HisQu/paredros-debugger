@@ -1,4 +1,3 @@
-
 from antlr4 import *
 
 class LookaheadVisualizer(ParserATNSimulator):
