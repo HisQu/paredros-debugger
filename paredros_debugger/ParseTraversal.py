@@ -1,7 +1,36 @@
+"""
+ParseTraversal manages the construction and maintenance of a directed graph that represents 
+the parser's path through the grammar. It tracks parser operations like:
+- Decision points where multiple paths are possible
+- Rule entries and exits
+- Token consumption
+- Alternative paths not taken
+
+The graph structure consists of:
+- Sequential nodes showing the actual parse path
+- Alternative nodes showing other possible paths
+- Merged nodes combining duplicate decision points
+
+Key operations:
+- Adding new decision points during parsing
+- Expanding alternative paths on demand
+- Merging duplicate decision sequences
+- Managing node relationships and IDs
+"""
+
 from paredros_debugger.ParseNode import ParseNode
 
 class ParseTraversal:
     def __init__(self):
+        """
+        Initialize a new parse traversal graph.
+
+        Attributes:
+            root (ParseNode): First node in the traversal
+            current_node (ParseNode): Most recently added node
+            all_nodes (list): Sequential list of all nodes in main path
+            parser (Parser): Reference to parser instance for ATN access
+        """
         self.root = None
         self.current_node = None
         self.all_nodes = []
@@ -13,10 +42,32 @@ class ParseTraversal:
         self.parser = parser
 
     def add_decision_point(self, state, current_token, lookahead, possible_alternatives, input_text, current_rule, node_type):
-        """Add a new decision point node to the traversal"""
-        # Fix for duplicate nodes created by adaptivepredict and sync calls
-        # If there are duplicate nodes there is always a node with alterinatives (from adaptivepredict) and one without (from sync)
-        # This checks for that and updates the node without the alternatives instead of creating a new one
+        """
+        Creates a new node in the parse traversal or updates an existing one. This method is called 
+        by the parser at key points during parsing to track its progress through the grammar.
+
+        The method handles duplicate nodes that can occur when both adaptivePredict and sync are
+        called on the same state. In such cases, it updates the existing node instead of creating
+        a new one.
+
+        Args:
+            state: Current ATN state number/object
+            current_token: The token currently being processed
+            lookahead: List of upcoming tokens being considered
+            possible_alternatives: List of (state, tokens) pairs representing possible transitions
+            input_text: Current input with cursor position showing progress
+            current_rule: Name of the current grammar rule
+            node_type: Type of node (Decision, Sync, Rule entry/exit, Token consume)
+
+        Returns:
+            ParseNode: Either a new node or the updated existing node
+
+        Note:
+            - Creates alternative nodes for each possible transition
+            - Handles duplicate nodes from adaptivePredict and sync calls
+            - Maintains the graph structure by linking nodes appropriately
+            - Root node is set to first created node
+        """
         if (self.current_node and 
             int(str(self.current_node.state)) == int(str(state)) and  
             self.current_node.chosen == -1):
@@ -132,9 +183,16 @@ class ParseTraversal:
 
     def group_and_merge(self):
         """
-        Identifies groups of decision/sync nodes that share the same rule name.
-        Only processes decision and sync nodes, ignoring rule entry/exit and token consume nodes.
-        Returns a list of node groups that could be cleaned up.
+        Identifies and merges duplicate decision/sync nodes to simplify the traversal graph.
+        Only processes decision and sync nodes that share the same rule name and occur in sequence.
+
+        Returns:
+            list: Tuples of (original_nodes, merged_node) for each merged group
+
+        Note:
+            - Only merges nodes of type 'Decision' or 'Sync'
+            - Ignores single nodes (no merge needed)
+            - Preserves rule entry/exit and token consume nodes
         """
         # List to store groups of nodes that should be cleaned up
         cleanup_groups = []

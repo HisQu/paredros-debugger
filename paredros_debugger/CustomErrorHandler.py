@@ -182,8 +182,9 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
     def follow_transitions(self, state, recognizer, visited=None):
         """
-        Enhance the follow transitions method to return a list of possible transitions from a
-        given state.
+        Traverses the ATN (Augmented Transition Network) starting from a given state and collects
+        all possible transitions. Follows all transitions recursively until a rule stop state is
+        reached or if a token or rule transition is found.
 
         Args:
             state (ATNState): The current ATN state.
@@ -215,7 +216,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
             # Handle atom transitions (single token)
             if isinstance(transition, AtomTransition):
-                # Hier nutzt man label_ anstatt label, danke fürs debuggen antlr
                 label = transition.label_
                 # First try symbolic names if literal is invalid
                 if (label < len(recognizer.literalNames) and 
@@ -327,7 +327,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             if token.type != Token.EOF:
                 tokens.append(token.text)
 
-        # How many tokens after the consumed tokens should be shown
         lookahead = []
         for i in range(1, lookahead_depth + 1):
             t = input.LT(i)
@@ -344,14 +343,25 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
     def _handle_token_consume(self, recognizer, token):
         """
-        Function to handle token consumption and update the decision tree.
+        Called by the CustomParser when a token is consumed during parsing. Creates a new
+        traversal node to track the parser's progress and updates the chosen path in the previous node
+        if the current token matches one of its alternatives.
+
+        The traversal structure being built is a directed graph that tracks parser operations, 
+        where nodes represent parser states and edges represent transitions between states.
+        Each node can have multiple alternative paths, but only one is chosen during actual parsing.
 
         Args:
-            recognizer (Parser): The parser instance.
-            token (Token): The consumed token.
+            recognizer (Parser): The parser instance consuming the token.
+            token (Token): The token being consumed by the parser.
 
         Returns:
             None
+
+        Note:
+            - Creates a new node in the parse traversal graph for each consumed token
+            - Updates the previous node's chosen path if the current token matches one of its alternatives
+            - Token consumption nodes always have chosen=1 since they represent actual parser progress
         """
         if self.error_occurred:
             return
@@ -386,14 +396,19 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
     def _handle_rule_entry(self, recognizer, rule_name):
         """
-        Handle rule entry and update decision tree
-        
+        Called by the CustomParser when entering a parser rule. Creates a new traversal node 
+        to mark the rule entry and updates any pending decisions that were waiting for this rule.
+
         Args:
-            recognizer (Parser): The parser instance.
-            rule_name (str): The name of the rule that was entered.
+            recognizer (Parser): The parser instance entering the rule.
+            rule_name (str): The name of the rule being entered.
 
         Returns:
             None
+
+        Note:
+            - Updates previous node's chosen path if it was waiting for this rule entry
+            - Creates a new node in the traversal graph to mark rule entry
         """
         if self.error_occurred:
             return
@@ -431,15 +446,33 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
                     node.chosen = alt_idx + 1
                     break
             else:
-                # No exit alternative found
+                # No exit alternative found, should never happen
                 node.chosen = -1
+
         self.current_node = node
 
 
     # Das hier ist ein wenig missleading, da es für den aktuellen state die nachfolger bestimmt (nicht zwingend direkt der exit)
     # Es wäre besser wenn wir die alternativen für den nachfolger aufrufen oder einfach hardcoden dass es nur eine alternative (exit) gibt
     def _handle_rule_exit(self, recognizer, rule_name):
-        """Handle rule exit and update decision tree"""
+        """
+        Called by the CustomParser when exiting a parser rule. Creates a new traversal node
+        to mark the rule exit point and updates any pending decisions.
+
+        Rule exit nodes are simplified to always have a single "Exit" alternative, since the actual
+        parsing path is already determined at this point.
+
+        Args:
+            recognizer (Parser): The parser instance exiting the rule.
+            rule_name (str): The name of the rule being exited.
+
+        Returns:
+            None
+
+        Note:
+            - Updates previous node's chosen path if it was waiting for an exit
+            - Creates a new node in the traversal graph to mark rule exit
+        """
         if self.error_occurred:
             return
 

@@ -1,7 +1,14 @@
 import re
 
-
 def modify_parser_file(filename):
+    """
+    Modifies ANTLR-generated parser files to use our custom parser implementation.
+    This script replaces the base Parser class with our CustomParser class to enable
+    parsing event interception and traversal tracking.
+
+    Args:
+        filename (str): The path to the parser file to modify
+    """
     with open(filename, 'r') as file:
         lines = file.readlines()
 

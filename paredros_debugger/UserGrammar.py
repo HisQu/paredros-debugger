@@ -1,3 +1,13 @@
+"""
+UserGrammar manages the loading and processing of ANTLR grammar files. It handles single
+grammar files as well as grammars with imports, tracking rule definitions and their locations.
+
+The module provides three main classes:
+- GrammarRule: Represents a single grammar rule with its content and location
+- GrammarFile: Handles parsing of individual grammar files
+- UserGrammar: Manages multiple grammar files and their relationships
+"""
+
 from antlr4 import FileStream, CommonTokenStream, InputStream
 from antlr4.Token import CommonToken
 from typing import Dict, List, Optional, Set
@@ -5,6 +15,9 @@ import os
 import re
 
 class GrammarRule:
+    """
+    Represents a single rule in an ANTLR grammar with its content and position information.
+    """
     def __init__(self, name: str, content: str, start_line: int, end_line: int, start_pos: int, end_pos: int):
         self.name = name
         self.content = content
@@ -14,6 +27,9 @@ class GrammarRule:
         self.end_pos = end_pos
 
 class GrammarFile:
+    """
+    Handles parsing and storing information about a single ANTLR grammar file.
+    """
     def __init__(self, path: str):
         self.path = os.path.abspath(path)
         self.directory = os.path.dirname(self.path)
@@ -22,7 +38,17 @@ class GrammarFile:
         self._load_grammar()
     
     def _load_grammar(self):
-        """Load and parse the grammar file"""
+        """
+        Parses a grammar file to extract rules and imports.
+        Processes the file line by line to:
+        - Track rule definitions and their contents
+        - Record import statements
+        - Maintain position information for each rule
+        - Handle multi-line rules and rule termination
+
+        Raises:
+            FileNotFoundError: If grammar file doesn't exist
+        """
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Grammar file not found: {self.path}")
         
@@ -108,6 +134,14 @@ class GrammarFile:
             )
 
 class UserGrammar:
+    """
+    Manages multiple ANTLR grammar files and their relationships.
+    Handles the main grammar file and any imported grammar files recursively.
+
+    Attributes:
+        grammar_files (Dict[str, GrammarFile]): Loaded grammar files by path
+        processed_files (Set[str]): Set of already processed file paths
+    """
     def __init__(self):
         self.grammar_files: Dict[str, GrammarFile] = {}
         self.processed_files: Set[str] = set()
