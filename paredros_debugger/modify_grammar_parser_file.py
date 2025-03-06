@@ -8,6 +8,9 @@ def modify_parser_file(filename):
 
     Args:
         filename (str): The path to the parser file to modify
+
+    Returns:
+        None
     """
     with open(filename, 'r') as file:
         lines = file.readlines()

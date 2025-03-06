@@ -82,7 +82,15 @@ class ParseInformation:
         self.parse()
     
     def parse(self):
-        """Runs the parser on the given input text and returns the root parse tree node."""
+        """
+        Runs the parser on the given input text and set the object with new informations.
+        Args:
+            None
+
+        Returns:
+            None
+        
+        """
         print("input stream")
         self.input_stream = InputStream(self.input_text)
         print("lexer")

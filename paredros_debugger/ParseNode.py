@@ -81,7 +81,15 @@ class ParseNode:
         next_node.id = self.id + 1
 
     def get_verbose_node(self):
-        """Get the verbose representation of the next node"""
+        """
+        Get the verbose representation of the next node
+        
+        Args:
+            None
+        
+        Returns:
+            str: Verbose representation of the next node
+        """
         if self.next_node is None:
             return None
         return f"state: {self.next_node.state}, rule_name: {self.next_node.rule_name}, node_type: {self.next_node.node_type}"

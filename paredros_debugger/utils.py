@@ -1,36 +1,67 @@
+"""
+This Module contains helper functions for the CLI tool and the ParseInformation class.
+The functions are used to generate the parser, modify the generated parser files, and load the parser and lexer classes dynamically.
+"""
+
 import importlib
-from paredros_debugger.modify_grammar_parser_file import modify_parser_file
 import os
 import subprocess
 import sys
+from paredros_debugger.modify_grammar_parser_file import modify_parser_file
 
-# todo: return list with all grammar files in folder
 def find_grammar_file(folder_path):
-    """Finds a .g4 grammar file in the given folder path."""
+    """
+    Finds a .g4 grammar file in the given folder path.
+
+    Args:
+        folder_path (str): The path to the folder containing the grammar file.
+
+    Returns:
+        str: The name of the grammar file if found, otherwise None.
+    """
     for file in os.listdir(folder_path):
         if file.endswith(".g4"):
             return file
     return None
 
-def rename_grammar_file(folder_path, grammar_file):
-    """Renames the found grammar file to MyGrammar.g4."""
-    old_path = os.path.join(folder_path, grammar_file)
-    new_path = os.path.join(folder_path, "MyGrammar.g4")
-    os.rename(old_path, new_path)
-    return new_path
-
-# todo
 def generate_parser(folder_path, grammar_file):
-    """Runs ANTLR4 to generate the parser in the specified folder."""
+    """
+    Runs ANTLR4 to generate the parser in the specified folder.
+
+    Args:
+        folder_path (str): The path to the folder containing the grammar file.
+        grammar_file (str): The name of the grammar file.
+
+    Returns:
+        None
+    """
     command = ["antlr4", "-Dlanguage=Python3", grammar_file]
     subprocess.run(command, cwd=folder_path, check=True)
 
 def modify_generated_parser(folder_path):
-    """Runs the modify_grammar_parser_file.py script to process the generated files."""
+    """
+    Runs the modify_grammar_parser_file.py script to process the generated files and apply CustomParser Naming.
+
+    Args:
+        folder_path (str): The path to the folder containing the generated parser files.
+
+    Returns:
+        None
+    """
     modify_parser_file(folder_path)
 
 def load_parser_and_lexer(folder_path, grammar_name):
-    """Dynamically load the generated MyGrammarLexer and MyGrammarParser."""
+    """
+    Dynamically load the generated parser and lexer classes from the specified folder.
+
+    Args:
+        folder_path (str): The path to the folder containing the generated parser files.
+        grammar_name (str): The name of the grammar file.
+
+    Returns:
+        tuple: A tuple containing the lexer and parser classes
+
+    """
     sys.path.insert(0, folder_path)  # Ensure the folder is in the Python path
 
     try:
@@ -48,8 +79,16 @@ def load_parser_and_lexer(folder_path, grammar_name):
         sys.exit(1)
 
 def get_start_rule(grammar_file):
-    """Extracts the first rule definition from the grammar file
-    to determine the starting rule for parsing."""
+    """
+    Extracts the first rule definition from the grammar file
+    to determine the starting rule for parsing.
+     
+    Args:
+        grammar_file (str): The path to the grammar file.
+
+    Returns:
+        str: The name of the first rule definition in the grammar
+    """
     try:
         with open(grammar_file, 'r') as f:
             for line in f:
