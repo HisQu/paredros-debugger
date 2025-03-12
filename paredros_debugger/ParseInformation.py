@@ -19,10 +19,10 @@ from paredros_debugger.utils import generate_parser, modify_generated_parser, lo
 
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
-    def __init__(self, grammar_file_path, input_file_path):
+    def __init__(self, grammar_file_path):
         self.grammar_file = os.path.abspath(grammar_file_path)
         self.grammar_folder = os.path.dirname(self.grammar_file)
-        self.input_file = os.path.abspath(input_file_path)
+        self.input_file = None
         self.input_text = None
         self.lexer_class = None
         self.parser_class = None
@@ -36,6 +36,7 @@ class ParseInformation:
         self.parser = None
         self.input_stream = None
         self.traversal = None
+        self.name_without_ext = None
 
         if not os.path.exists(self.grammar_file) or not os.path.isfile(self.grammar_file):
             raise FileNotFoundError(f"The grammar file {self.grammar_file} does not exist or is not a file.")
@@ -48,8 +49,8 @@ class ParseInformation:
         print("basename", basename)
         grammar_folder_path = os.path.dirname(grammar_file_path) # Extract grammar folder path
         print("grammar_folder_path", grammar_folder_path)
-        name_without_ext = os.path.splitext(basename)[0]  # Extracts Grammar name
-        print("name_without_ext", name_without_ext)
+        self.name_without_ext = os.path.splitext(basename)[0]  # Extracts Grammar name
+        print("name_without_ext", self.name_without_ext)
 
         try:
             generate_parser(grammar_folder_path, basename)
@@ -61,12 +62,23 @@ class ParseInformation:
 
 
         try:
-            modify_generated_parser(grammar_folder_path + "/" + name_without_ext + "Parser.py")
+            modify_generated_parser(grammar_folder_path + "/" + self.name_without_ext + "Parser.py")
             print("Parser modification completed.")
         except subprocess.CalledProcessError:
             print("Error: Failed to modify the generated parser.")
             sys.exit(1)
+    
+    def parse(self, input_file):
+        """
+        Runs the parser on the given input text and set the object with new informations.
+        Args:
+            None
 
+        Returns:
+            None
+        
+        """
+        self.input_file = input_file
         # load input string instead of file
         try:
             with open(os.path.join(self.input_file), "r", encoding="utf-8") as f:
@@ -77,20 +89,9 @@ class ParseInformation:
         print("======= Reading input file =======")
         self.input_text = input_text
         print("======= Load parser and lexer =======")
-        self.lexer_class, self.parser_class = load_parser_and_lexer(grammar_folder_path, name_without_ext)
+        self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
         print("======= Parsing input text =======")
         self.parse()
-    
-    def parse(self):
-        """
-        Runs the parser on the given input text and set the object with new informations.
-        Args:
-            None
-
-        Returns:
-            None
-        
-        """
         print("input stream")
         self.input_stream = InputStream(self.input_text)
         print("lexer")
