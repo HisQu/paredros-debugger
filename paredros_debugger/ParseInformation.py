@@ -78,6 +78,9 @@ class ParseInformation:
             None
         
         """
+        print("======= Input file location =======")
+        print(input_file)
+        
         self.input_file = input_file
         # load input string instead of file
         try:
