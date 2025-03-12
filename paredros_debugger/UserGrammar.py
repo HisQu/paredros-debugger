@@ -8,8 +8,6 @@ The module provides three main classes:
 - UserGrammar: Manages multiple grammar files and their relationships
 """
 
-from antlr4 import FileStream, CommonTokenStream, InputStream
-from antlr4.Token import CommonToken
 from typing import Dict, List, Optional, Set
 import os
 import re
