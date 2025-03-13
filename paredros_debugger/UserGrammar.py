@@ -33,6 +33,7 @@ class GrammarFile:
         self.directory = os.path.dirname(self.path)
         self.rules: Dict[str, GrammarRule] = {}
         self.imports: List[str] = []
+        self.content: str = ""
         self._load_grammar()
     
     def _load_grammar(self):
@@ -53,6 +54,8 @@ class GrammarFile:
         with open(self.path, 'r') as f:
             content = f.read()
             
+        self.content = content
+        
         # Split content into its lines
         lines = content.split('\n')
         current_rule = ''
