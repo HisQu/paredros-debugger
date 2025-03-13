@@ -96,6 +96,7 @@ def visualize_parsing(grammar_file, input_file):
     try:
         print(f"\n=== Parsing {input_file} ===")
         parse_info = ParseInformation(grammar_file, input_file)
+        parse_info.parse(input_file)
         print("=== Parsing completed ===")
         print(parse_info.traversal.root)
         print("=== REPL Interaction ===")

@@ -19,7 +19,7 @@ from paredros_debugger.utils import generate_parser, modify_generated_parser, lo
 
 class ParseInformation:
     """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
-    def __init__(self, grammar_file_path):
+    def __init__(self, grammar_file_path, input_file_path=None):
         self.grammar_file = os.path.abspath(grammar_file_path)
         self.grammar_folder = os.path.dirname(self.grammar_file)
         self.input_file = None
@@ -94,7 +94,6 @@ class ParseInformation:
         print("======= Load parser and lexer =======")
         self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
         print("======= Parsing input text =======")
-        self.parse()
         print("input stream")
         self.input_stream = InputStream(self.input_text)
         print("lexer")
