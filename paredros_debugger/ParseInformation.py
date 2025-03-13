@@ -94,7 +94,6 @@ class ParseInformation:
         print("======= Load parser and lexer =======")
         self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
         print("======= Parsing input text =======")
-        self.parse()
         print("input stream")
         self.input_stream = InputStream(self.input_text)
         print("lexer")
