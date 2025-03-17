@@ -14,6 +14,7 @@ a complete picture of the parsing process.
 """
 
 from antlr4 import *
+from paredros_debugger.utils import copy_token_stream
 
 class LookaheadVisualizer(ParserATNSimulator):
     """
@@ -86,8 +87,9 @@ class LookaheadVisualizer(ParserATNSimulator):
             alternatives,
             input_text, 
             current_rule,
-            "Decision"
+            "Decision",
+            token_stream=copy_token_stream(self.parser.getTokenStream())
             )
-        node.chosen = prediction
+        node.chosen_index = prediction
 
         return prediction

@@ -7,7 +7,8 @@ import importlib
 import os
 import subprocess
 import sys
-from paredros_debugger.modify_grammar_parser_file import modify_parser_file
+from paredros_debugger.ModifyGrammarParserFile import modify_parser_file
+from antlr4 import CommonTokenStream
 
 def find_grammar_file(folder_path):
     """
@@ -101,3 +102,24 @@ def get_start_rule(grammar_file):
                         return extracted_rule_names
     except FileNotFoundError:
         return ''
+
+
+
+def copy_token_stream(original_stream: CommonTokenStream) -> CommonTokenStream:
+    """
+    Creates a copy of the given CommonTokenStream with the same tokens and index.
+    
+    :param original_stream: The CommonTokenStream to copy
+    :return: A new CommonTokenStream instance with the same tokens and position
+    """
+    if not isinstance(original_stream, CommonTokenStream):
+        raise TypeError("Expected a CommonTokenStream")
+
+    # Create a new stream using the same token source
+    copied_stream = CommonTokenStream(original_stream.tokenSource)
+
+    # Copy token list and set the same position
+    copied_stream.tokens = original_stream.tokens[:]
+    copied_stream.seek(original_stream.index)
+
+    return copied_stream
