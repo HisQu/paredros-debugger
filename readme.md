@@ -4,7 +4,7 @@ A tool for visualizing and analyzing the parsing process of ANTLR4 grammars, wit
 
 ## Prerequisites
 
-- Python 3.6 or higher (developed with 3.10.15)
+- Python 3.10 or higher (developed with 3.10.15)
 - ANTLR4 4.13.2
 - Java Runtime Environment (JRE) 11 or higher
 
@@ -39,6 +39,20 @@ The CLI debugger provides an interactive way to explore how ANTLR4 processes you
 - Rule entry/exit points
 - Detailed lookahead information
 
+### Key Concepts
+
+The debugger visualizes ANTLR's parsing process through the Augmented Transition Network (ATN):
+
+- **ATN**: ANTLR's internal state machine that defines all possible paths through your grammar
+- **Parser Traversal Graph**: Our custom data structure that captures the parser's path through the ATN as a connected network of nodes
+- **Node**: A point in the parsing process representing a parser state (rule entry, token match, etc.)
+- **Child Node**: The next sequential step in the parsing process
+- **Parent Node**: The previous step in the parsing process
+- **Alternatives**: Different possible paths the parser could take from a given state
+- **Parse Path**: The actual sequence of states the parser follows to process your input
+
+The debugger creates a navigable graph of these nodes, allowing you to explore both the actual parse path and other potential paths ANTLR considered.
+
 ### Basic Usage
 
 ```bash
@@ -64,8 +78,6 @@ At each step, you'll see:
 - Input context
 
 
-The Debugger is built on top of our Lookahead Visualizer, which shows the relevant steps an ANTLR parser took in order to properly process a specific input. For this we make use of the Augmented Transition Network (ATN) where different operations like entering a grammar rule or consuming a token are present via their respective ATN states. The visualizer tracks the following:  
-
 ## How It Works
 
 ### The Parsing Process
@@ -75,10 +87,10 @@ During grammar compilation, ANTLR creates the ATN which is essentially a roadmap
  2. States represent parsing operations like: 
     - Matching tokens
     - Entering/exiting rules
-    - Maiking decisions between alternatives
+    - Making decisions between alternatives
  3. Transitions show how to move between states based on the input
 
-Since this is the baseline for larger structures like parsetrees we use the ATN as foundation for our visualizer. We track how decisions are made and why ceratain paths, which rules are entered and what tokens were consumed during parsing. The ATN states and transitions are captured in our visualizer using a node-based data structure. Each node represents a specific point in the parsing process. Since ANTLR always chooses to take one concrete path through the ATN and we build our datastructure upon this decisionmaking the result is a linked list of nodes. A node contains information about the current ATN state, the next token to be consumed, the already processed input and it's alternative nodes. 
+Since this is the baseline for larger structures like parsetrees we use the ATN as foundation for our visualizer. We track how decisions are made, why certain paths are taken, which rules are entered and what tokens were consumed during parsing. The ATN states and transitions are captured in our visualizer using a node-based data structure. Each node represents a specific point in the parsing process. Since ANTLR always chooses to take one concrete path through the ATN and we build our datastructure upon this decisionmaking, the result is a linked list of nodes. A node contains information about the current ATN state, the next token to be consumed, the already processed input and it's alternative nodes. 
 
 
 ### Decision making
@@ -101,10 +113,16 @@ State processing and node creation terminates in two cases: either when the inpu
 ### State Tracking
 
 The tool implements a `ParseTraversal` class that:
-- Maintains a tree of parse nodes
+- Maintains a list of parse steps
 - Records state transitions
 - Captures decision points
 - Tracks token consumption
+
+The main interfacing with the frontend is done through the `Parseinformation` class, containing all necessary information and functions to start and analyze a parse. It contains a parse tree, that can be interacted with throug the `ParseTreeExplorer` by:
+- Moving through the parseprocess step by step
+- Moving between the steps that represent decisions in the parse process
+- Exploring alternatives at decision steps
+- Jumping to specified steps of the parsing process
 
 ### Ensuring Visibility
 
