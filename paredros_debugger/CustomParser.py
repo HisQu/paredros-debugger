@@ -15,9 +15,10 @@ Usage:
     The class is automatically used when ANTLR generates parser code, as the base Parser class
     gets replaced with CustomParser during parser generation.
 """
-
+from antlr4 import TokenStream
 from antlr4 import ParserRuleContext
 from antlr4.Parser import Parser
+from antlr4.atn import ParserATNSimulator
 from paredros_debugger.CustomErrorHandler import CustomDefaultErrorStrategy
 
 class CustomParser(Parser):
@@ -25,9 +26,12 @@ class CustomParser(Parser):
     Enhanced Parser that tracks parsing events to build a traversal graph.
     Extends ANTLR's Parser class and delegates tracking to CustomDefaultErrorStrategy.
     """
-    def __init__(self, input, output = ...):
+    _interp: ParserATNSimulator
+
+    def __init__(self, input: TokenStream, output = ...):
         super().__init__(input, output)
         self._errHandler = CustomDefaultErrorStrategy()
+        self._errHandler.traversal.set_parser(self)
 
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]

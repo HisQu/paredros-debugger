@@ -12,7 +12,7 @@ def modify_parser_file(filename):
     Returns:
         None
     """
-    with open(filename, 'r') as file:
+    with open(filename, 'r', encoding="utf-8") as file:
         lines = file.readlines()
 
     modified_lines = []
@@ -33,5 +33,5 @@ def modify_parser_file(filename):
     if not import_added:
         modified_lines.insert(0, 'from paredros_debugger.CustomParser import CustomParser\n')
 
-    with open(filename, 'w') as file:
+    with open(filename, 'w', encoding="utf-8") as file:
         file.writelines(modified_lines)

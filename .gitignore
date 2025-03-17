@@ -9,9 +9,16 @@ MyGrammarParser.py
 visualisation/
 .antlr/
 __pycache__/
-input.txt
 MyGrammar.g4
 output.txt
 .venv/*
 !DetailedParseListener.py
 TestGrammar.g4
+parseTree_*.json
+Simpleton/.antlr/*
+Simpleton/__pycache__/*
+Simpleton/*.py
+Simpleton/*.tokens
+Simpleton/*.interp
+Simpleton/*.java
+Simpleton/*.dot

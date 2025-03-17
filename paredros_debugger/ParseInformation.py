@@ -15,6 +15,9 @@ from antlr4.atn.PredictionMode import PredictionMode
 from paredros_debugger.LookaheadVisualizer import LookaheadVisualizer
 from paredros_debugger.DetailedParseListener import DetailedParseListener
 from paredros_debugger.UserGrammar import UserGrammar
+from paredros_debugger.ParseTreeExplorer import ParseTreeExplorer
+from paredros_debugger.ParseTraceTree import ParseTraceTree
+from paredros_debugger.ParseTraversal import ParseTraversal
 from paredros_debugger.utils import generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
 
 class ParseInformation:
@@ -30,12 +33,13 @@ class ParseInformation:
         self.walker = None
         self.listener = None
         self.rules_dict = None
-        self.parse_tree = None
+        self.simple_parse_tree = None
+        self.parse_trace_tree = None
         self.tokens = None
         self.lexer = None
         self.parser = None
         self.input_stream = None
-        self.traversal = None
+        self.traversal: ParseTraversal = None
         self.name_without_ext = None
 
         if not os.path.exists(self.grammar_file) or not os.path.isfile(self.grammar_file):
@@ -113,11 +117,49 @@ class ParseInformation:
         print("start rule", self.start_rule)
         parse_method = getattr(self.parser, self.start_rule)
         tree = parse_method()
-        self.parse_tree = Trees.toStringTree(tree, None, self.parser)
+        self.simple_parse_tree = Trees.toStringTree(tree, None, self.parser)
         print("Final Parse Tree")
-        print(self.parse_tree)
+        print(self.simple_parse_tree)
 
         self.traversal = self.parser._errHandler.traversal
         merged_groups = self.traversal.group_and_merge()
         self.traversal.replace_merged_nodes(merged_groups)
         self.traversal._fix_node_ids()
+
+        self.parse_trace_tree = ParseTraceTree()
+        self.parse_trace_tree.build_from_traversal(self.traversal)
+
+        self.explorer = ParseTreeExplorer(full_tree=self.parse_trace_tree, traversal=self.traversal)
+
+    def step_forward(self, step: int) -> None:
+        self.explorer.step_forward(num_steps=step)
+
+    def step_backwards(self, step: int) -> None:
+        self.explorer.go_back_one_step()
+
+    def go_to_step(self, step: int) -> None:
+        self.explorer.reset_to_step_id(step)
+
+    def step_until_next_decision(self) -> None:
+        return self.explorer.step_until_next_decision()
+    
+    def step_back_until_last_decision(self) -> None:
+        return self.explorer.step_back_until_previous_decision()
+    
+    def explore_alternatives(self) -> int:
+        self.explorer.expand_alternatives()
+        return len(self.explorer._expanded_alt_nodes)
+
+    def choose_alternative(self, alt_index: int) -> None:
+        return self.explorer.choose_alternative(alt_index)
+
+    def get_json(self) -> str:
+        return self.explorer.to_json()
+    
+    def get_dict(self) -> dict:
+        return self.explorer.to_dict()
+    
+    def get_current_step(self) -> dict:
+        return self.explorer.current_step.to_dict()
+    
+
