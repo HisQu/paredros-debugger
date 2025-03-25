@@ -182,9 +182,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
         super().sync(recognizer)
 
-    def follow_transitions(self, state, recognizer, visited=None):
-        return self.traversal.follow_transitions(state, recognizer, visited)
-
     ####################
     # Helper functions
     ####################
@@ -287,7 +284,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         ruleIndex = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
         ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
         token_str = self._token_str(recognizer, token)
-        alternatives = self.follow_transitions(state, recognizer)
+        alternatives = self.traversal.follow_transitions(state, recognizer)
 
         # Update previous node if the current token matches an alternative
         if self.current_node and self.current_node.possible_alternatives:
@@ -403,7 +400,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
         # Create new node for the rule exit
         state = recognizer._interp.atn.states[recognizer.state]
-        alternatives = self.traversal.follow_transitions(state, recognizer)
         node = self.traversal.add_decision_point(
             state.stateNumber,
             f"Rule exit: {rule_name}",

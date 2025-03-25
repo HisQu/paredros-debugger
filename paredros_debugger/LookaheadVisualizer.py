@@ -56,13 +56,18 @@ class LookaheadVisualizer(ParserATNSimulator):
         prediction = super().adaptivePredict(input, decision, outerContext)
 
         # Show lookahead information
+
+        
+
         current_token = input.LT(1)
         lookahead = self.parser._errHandler._get_lookahead_tokens(self.parser, input, self.lookahead_depth)
         state = self.parser.state
         atn_state = self.parser._interp.atn.states[state]
         readableToken = self.parser._errHandler._token_str(self.parser, current_token)
         input_text = self.parser._errHandler._get_consumed_tokens(input, self.lookahead_depth)
-        alternatives = self.parser._errHandler.follow_transitions(atn_state, self.parser)
+        traversal = self.parser._errHandler.traversal
+        alternatives = traversal.follow_transitions(atn_state, self.parser)
+        
         
         # Debug
         # ----------------------------------------
@@ -80,7 +85,7 @@ class LookaheadVisualizer(ParserATNSimulator):
         # print(f"   Input: {input_text}")
         # ----------------------------------------
 
-        node = self.parser._errHandler.traversal.add_decision_point(
+        node = traversal.add_decision_point(
             state,
             readableToken,
             lookahead,
