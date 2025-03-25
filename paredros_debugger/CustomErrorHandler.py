@@ -183,67 +183,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         super().sync(recognizer)
 
     def follow_transitions(self, state, recognizer, visited=None):
-        """
-        Traverses the ATN (Augmented Transition Network) starting from a given state and collects
-        all possible transitions. Follows all transitions recursively until a rule stop state is
-        reached or if a token or rule transition is found.
-
-        Args:
-            state (ATNState): The current ATN state.
-            recognizer (Parser): The parser instance.
-            visited (set): A set of visited states to avoid infinite recursion.
-
-        Returns:
-            list: A list of possible transitions from the given state.
-        """
-        # Necessary to avoid infinite recursion
-        if visited is None:
-            visited = set()
-
-        if state.stateNumber in visited:
-            return []
-
-        visited.add(state.stateNumber)
-        results = []
-
-        # Rule stop special case
-        if state.stateType == ATNState.RULE_STOP:
-            results.append((state.stateNumber, ["Exit"]))
-            return results
-
-        for transition in state.transitions:
-            # Create new visited set for each path
-            path_visited = visited.copy()
-            tokens = []
-            next_state = state.stateNumber
-
-            # Handle atom transitions (single token)
-            if isinstance(transition, AtomTransition):
-                label = transition.label_
-                results.append((next_state, recognizer.symbolicNames[label]))
-                continue
-                
-            # Handle set transitions (multiple tokens)
-            elif isinstance(transition, SetTransition):
-                for t in transition.label:
-                    tokens.append(recognizer.symbolicNames[t])    
-
-                results.append((next_state, tokens))
-                continue
-
-            # Handle rule transitions
-            elif isinstance(transition, RuleTransition):
-                ruleName = recognizer.ruleNames[transition.ruleIndex] if transition.ruleIndex < len(recognizer.ruleNames) else "unknown"
-                results.append((next_state, ["Rule " + ruleName]))
-                continue
-
-            # Only follow epsilon transitions if we haven't found a match
-            if not tokens:
-                next_results = self.follow_transitions(transition.target, recognizer, path_visited)
-                if next_results:
-                    results.extend(next_results)
-
-        return results
+        return self.traversal.follow_transitions(state, recognizer, visited)
 
     ####################
     # Helper functions
