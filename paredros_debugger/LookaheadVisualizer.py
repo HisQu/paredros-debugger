@@ -57,15 +57,14 @@ class LookaheadVisualizer(ParserATNSimulator):
 
         # Show lookahead information
 
-        
+        traversal = self.parser._errHandler.traversal
 
         current_token = input.LT(1)
-        lookahead = self.parser._errHandler._get_lookahead_tokens(self.parser, input, self.lookahead_depth)
+        lookahead = traversal._get_lookahead_tokens(self.parser, input, self.lookahead_depth)
         state = self.parser.state
         atn_state = self.parser._interp.atn.states[state]
-        readableToken = self.parser._errHandler._token_str(self.parser, current_token)
-        input_text = self.parser._errHandler._get_consumed_tokens(input, self.lookahead_depth)
-        traversal = self.parser._errHandler.traversal
+        readableToken = traversal._token_str(self.parser, current_token)
+        input_text = traversal._get_consumed_tokens(input, self.lookahead_depth)
         alternatives = traversal.follow_transitions(atn_state, self.parser)
         
         

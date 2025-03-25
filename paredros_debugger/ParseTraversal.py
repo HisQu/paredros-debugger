@@ -17,6 +17,7 @@ Key operations:
 - Merging duplicate decision sequences
 - Managing node relationships and IDs
 """
+from antlr4 import Token
 from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.atn.ATNState import ATNState
 
@@ -303,8 +304,8 @@ class ParseTraversal:
                     child_node.token_stream.consume()
                     next_token = child_node.token_stream.tokens[child_node.token_stream.index]
                     child_node.current_token = self.parser.symbolicNames[next_token.type]
-                    child_node.input_text = self.parser._errHandler._get_consumed_tokens(child_node.token_stream, 3)
-                    child_node.lookahead = self.parser._errHandler._get_lookahead_tokens(self.parser, child_node.token_stream, 3)
+                    child_node.input_text = self._get_consumed_tokens(child_node.token_stream, 3)
+                    child_node.lookahead = self._get_lookahead_tokens(self.parser, child_node.token_stream, 3)
                     # debug info for next token
                     if child_node.token_stream.index < len(child_node.token_stream.tokens):
                         # the next lookahead token
@@ -320,6 +321,77 @@ class ParseTraversal:
             alt_node.matching_error = alt_node.check_token_match(self.parser)
 
         return alt_node
+    
+
+    ####################
+    # Helper functions
+    ####################
+    def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
+        """
+        Get the lookahead tokens for the current state in the ATN.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            input (TokenStream): The token stream.
+            lookahead_depth (int): The depth of lookahead.
+
+        Returns:
+            str: A string representation of the lookahead tokens
+        """
+        tokens = []
+        for i in range(1, lookahead_depth + 1):
+            token = input.LT(i)
+            if token.type == Token.EOF:
+                break
+            tokens.append(self._token_str(recognizer, token))
+        return ", ".join(tokens)
+
+    def _token_str(self, recognizer, token):
+        """
+        Return a string representation of a token.
+
+        Args:
+            recognizer (Parser): The parser instance.
+            token (Token): The token to represent.
+
+        Returns:
+            str: A string representation of the token.
+        """
+        name = recognizer.symbolicNames[token.type]
+        if name == "<INVALID>":
+            return f"Literal ('{token.text}')"
+        else:
+            return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
+
+    def _get_consumed_tokens(self, input, lookahead_depth):
+        """
+        Get the consumed tokens for the current state in the ATN.
+
+        Args:
+            input (TokenStream): The token stream.
+            lookahead_depth (int): The depth of lookahead.
+        
+        Returns:
+            str: A string representation of the consumed tokens
+        """
+        tokens = []
+        for i in range(input.index):
+            token = input.get(i)
+            if token.type != Token.EOF:
+                tokens.append(token.text)
+
+        lookahead = []
+        for i in range(1, lookahead_depth + 1):
+            t = input.LT(i)
+            if t and t.type != Token.EOF:
+                lookahead.append(t.text)
+
+        # Cursermarker for consumed tokens
+        consumed = " ".join(tokens) + "⏺"
+        if lookahead:
+            consumed += " " + " ".join(lookahead)
+
+        return consumed
 
     def get_node_by_id(self, node_id) -> ParseStep :
         """Find a node by its unique identifier

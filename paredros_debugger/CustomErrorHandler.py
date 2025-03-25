@@ -91,8 +91,8 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             state = recognizer._interp.atn.states[recognizer.state]
             rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
             token = recognizer.getCurrentToken()
-            lookahead = self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
-            token_str = self._token_str(recognizer, token)
+            lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
+            token_str = self.traversal._token_str(recognizer, token)
             alternatives = self.traversal.follow_transitions(state, recognizer)
 
             # Add final error node
@@ -101,7 +101,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
                 token_str,
                 lookahead,
                 alternatives,
-                self._get_consumed_tokens(recognizer.getTokenStream(), 3),
+                self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
                 rule,
                 "Error",
                 token_stream=copy_token_stream(recognizer.getTokenStream())
@@ -146,16 +146,16 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
         state = recognizer._interp.atn.states[recognizer.state]
         currentToken = recognizer.getCurrentToken()
-        readableToken = self._token_str(recognizer, currentToken)
+        readableToken = self.traversal._token_str(recognizer, currentToken)
         maxLookahead = 3
 
         # Track sync point
         current_token = recognizer.getCurrentToken()
-        lookahead = self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(),
+        lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(),
                                                maxLookahead)
         alternatives = self.traversal.follow_transitions(state, recognizer)
         
-        input_text = self._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)
+        input_text = self.traversal._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)
 
         # Create new decision point node
         node = self.traversal.add_decision_point(
@@ -179,78 +179,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
                         break
 
         self.current_node = node
-
         super().sync(recognizer)
-
-    ####################
-    # Helper functions
-    ####################
-    def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
-        """
-        Get the lookahead tokens for the current state in the ATN.
-
-        Args:
-            recognizer (Parser): The parser instance.
-            input (TokenStream): The token stream.
-            lookahead_depth (int): The depth of lookahead.
-
-        Returns:
-            str: A string representation of the lookahead tokens
-        """
-        tokens = []
-        for i in range(1, lookahead_depth + 1):
-            token = input.LT(i)
-            if token.type == Token.EOF:
-                break
-            tokens.append(self._token_str(recognizer, token))
-        return ", ".join(tokens)
-
-    def _token_str(self, recognizer, token):
-        """
-        Return a string representation of a token.
-
-        Args:
-            recognizer (Parser): The parser instance.
-            token (Token): The token to represent.
-
-        Returns:
-            str: A string representation of the token.
-        """
-        name = recognizer.symbolicNames[token.type]
-        if name == "<INVALID>":
-            return f"Literal ('{token.text}')"
-        else:
-            return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
-
-    def _get_consumed_tokens(self, input, lookahead_depth):
-        """
-        Get the consumed tokens for the current state in the ATN.
-
-        Args:
-            input (TokenStream): The token stream.
-            lookahead_depth (int): The depth of lookahead.
-        
-        Returns:
-            str: A string representation of the consumed tokens
-        """
-        tokens = []
-        for i in range(input.index):
-            token = input.get(i)
-            if token.type != Token.EOF:
-                tokens.append(token.text)
-
-        lookahead = []
-        for i in range(1, lookahead_depth + 1):
-            t = input.LT(i)
-            if t and t.type != Token.EOF:
-                lookahead.append(t.text)
-
-        # Cursermarker for consumed tokens
-        consumed = " ".join(tokens) + "⏺"
-        if lookahead:
-            consumed += " " + " ".join(lookahead)
-
-        return consumed
 
 
     def _handle_token_consume(self, recognizer, token):
@@ -283,7 +212,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
         ruleIndex = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
         ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
-        token_str = self._token_str(recognizer, token)
+        token_str = self.traversal._token_str(recognizer, token)
         alternatives = self.traversal.follow_transitions(state, recognizer)
 
         # Update previous node if the current token matches an alternative
@@ -296,9 +225,9 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         node = self.traversal.add_decision_point(
             state.stateNumber,
             token_str,
-            self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead),
+            self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead),
             alternatives,
-            self._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead),
+            self.traversal._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead),
             ruleName,
             "Token consume",
             token_stream=copy_token_stream(recognizer.getTokenStream())
@@ -343,9 +272,9 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         node = self.traversal.add_decision_point(
             state.stateNumber,
             rule_name,
-            self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead),
+            self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), maxLookahead),
             alternatives,
-            self._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead),
+            self.traversal._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead),
             rule_name,
             "Rule entry",
             token_stream=copy_token_stream(recognizer.getTokenStream())
@@ -403,9 +332,9 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         node = self.traversal.add_decision_point(
             state.stateNumber,
             f"Rule exit: {rule_name}",
-            self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3),
+            self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3),
             [(00, ['Exit'])],
-            self._get_consumed_tokens(recognizer.getTokenStream(), 3),
+            self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
             rule_name,
             "Rule exit",
             token_stream=copy_token_stream(recognizer.getTokenStream())
