@@ -51,7 +51,7 @@ class GrammarFile:
         if not os.path.exists(self.path):
             raise FileNotFoundError(f"Grammar file not found: {self.path}")
         
-        with open(self.path, 'r') as f:
+        with open(self.path, 'r', encoding="utf-8") as f:
             content = f.read()
             
         self.content = content

@@ -41,7 +41,7 @@ class ParseTreeNode:
             "rule_name": self.rule_name,
             "token": self.token,
             "trace_info": trace_info if verbose else "collapsed",
-            "children": [child.to_dict() for child in self.children],
+            "children": [child.to_dict(verbose) for child in self.children],
         }
     
 
@@ -265,15 +265,15 @@ class ParseTraceTree:
 
         return None, None
 
-    def to_dict(self) -> dict:
+    def to_dict(self, verbose:bool=False) -> dict:
         """Convert the entire parse tree to a dictionary (root + children)."""
         if not self.root:
             return {}
-        return self.root.to_dict()
+        return self.root.to_dict(verbose=verbose)
 
-    def to_json(self, indent=2) -> str:
-        """Serialize the parse tree to JSON."""
-        d = self.to_dict()
+    def to_json(self, indent=2, verbose:bool=False) -> str:
+        """Serialize the parse tree to JSON, optionally verbosely."""
+        d = self.to_dict(verbose=verbose)
         return json.dumps(d, indent=indent, ensure_ascii=False)
     
     def last_step_id(self) -> int:

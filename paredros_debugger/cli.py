@@ -44,7 +44,11 @@ def main():
         nargs='?',
         help="Path of the input file"
     )
-
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Print verbose parse-tree steps in JSON output"
+    )
     args = parser.parse_args()
 
     # Retrieve the grammar and input file paths (either from args or defaults):
@@ -60,10 +64,9 @@ def main():
         arg_name="input_file_path"
     )
 
-    # Replace with your own function that uses grammar_file and input_file
-    visualize_parsing(grammar_file, input_file)
+    visualize_parsing(grammar_file, input_file, verbose=args.verbose)
 
-def visualize_parsing(grammar_file, input_file):
+def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     """
     Visualize the parsing process using our new step-based REPL.
     """
@@ -83,20 +86,24 @@ def visualize_parsing(grammar_file, input_file):
     parse_tree.build_from_traversal(parse_info.traversal)
 
     # Dump final parse tree to JSON for reference
-    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_file = f"parseTree_{now_str}.json"
-    with open(out_file, "w", encoding="utf-8") as f:
-        f.write(parse_tree.to_json(indent=2))
+    if verbose:
+        now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_file = f"parseTree_{now_str}.json"
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(parse_tree.to_json(indent=2, verbose=verbose))
 
-    print(f"Final parse tree written to {out_file}")
+        print(f"Final parse tree written to {out_file}")
 
     # Create the explorer
     explorer = ParseTreeExplorer(full_tree=parse_tree, traversal=parse_info.traversal)
 
     # Start the interactive REPL
-    interactive_explorer_repl(explorer, parse_info)
+    interactive_explorer_repl(explorer, parse_info, verbose)
 
-def interactive_explorer_repl(explorer: ParseTreeExplorer, parse_info: ParseInformation):
+def interactive_explorer_repl(
+    explorer: ParseTreeExplorer, 
+    parse_info: ParseInformation, 
+    verbose: bool = False):
     """
     A more interactive REPL using our ParseTreeExplorer,
     but if the user presses Enter (no command), we interpret that as
@@ -109,7 +116,7 @@ def interactive_explorer_repl(explorer: ParseTreeExplorer, parse_info: ParseInfo
     while True:
         # 1) Show partial parse tree so far
         print(f"\n===== CURRENT PARTIAL TREE (cut at step_id={explorer.current_step_id}) =====")
-        print(explorer.to_json())
+        print(explorer.to_json(verbose))
 
         # 2) Show current step info
         cur_node = explorer._get_working_tree_step(explorer.current_step_id)
@@ -160,10 +167,6 @@ def interactive_explorer_repl(explorer: ParseTreeExplorer, parse_info: ParseInfo
                     explorer.step_forward(num_steps=1)
                 except RuntimeError as e:
                     print(f"Error: {e}")
-
-            print(f"\n--- Updated Partial Tree (step_id={explorer.current_step_id}) ---")
-            print(explorer.to_json())
-            print("------------------------------------------")
             continue
 
         # ---- Otherwise, interpret the typed command ----
@@ -201,7 +204,7 @@ def interactive_explorer_repl(explorer: ParseTreeExplorer, parse_info: ParseInfo
 
             # 2) Dump partial parse so user can see expansions
             print("\n--- Partial Tree after expansions ---")
-            print(explorer.to_json())
+            print(explorer.to_json(verbose))
 
             # 3) Prompt user for alt index
             alt_str = input("Enter alt index to choose (1-based), or press Enter for default: ").strip()
@@ -253,11 +256,6 @@ def interactive_explorer_repl(explorer: ParseTreeExplorer, parse_info: ParseInfo
 
         else:
             print("Unknown command. Type 'h' for help or 'q' to quit.")
-
-        # End of loop: print short status again
-        # print(f"\n--- Updated Partial Tree (step_id={explorer.current_step_id}) ---")
-        # print(explorer.to_json())
-        # print("------------------------------------------")
 
 if __name__ == "__main__":
     main()

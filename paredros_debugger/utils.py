@@ -91,7 +91,7 @@ def get_start_rule(grammar_file):
         str: The name of the first rule definition in the grammar
     """
     try:
-        with open(grammar_file, 'r') as f:
+        with open(grammar_file, 'r', encoding="utf-8") as f:
             for line in f:
                 # Skip empty lines and comments
                 if line.strip() and not line.strip().startswith('//'):

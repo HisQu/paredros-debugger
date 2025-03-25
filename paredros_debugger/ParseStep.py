@@ -138,11 +138,11 @@ class ParseStep:
 
     def get_attributes_next_node(self):
         """Returns the object's attributes as a dictionary."""
-        return json.dumps(vars(self.next_node), indent=4)
+        return json.dumps(vars(self.next_node), indent=4, ensure_ascii=False)
 
     def get_attributes_as_json(self):
         """Returns the object's attributes as a JSON string."""
-        return json.dumps(vars(self), indent=4)
+        return json.dumps(vars(self), indent=4, ensure_ascii=False)
 
     def matches_rule_entry(self, ruleName: str) -> bool:
         """

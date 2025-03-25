@@ -56,11 +56,11 @@ class ParseTreeExplorer:
     # -------------------------------------------------------------------------
     # Basic & Utility
     # -------------------------------------------------------------------------
-    def to_json(self) -> str:
-        return self.working_tree.to_json(indent=2)
+    def to_json(self, verbose: bool = False) -> str:
+        return self.working_tree.to_json(indent=2, verbose=verbose)
 
-    def to_dict(self) -> dict:
-        return self.working_tree.to_dict()
+    def to_dict(self, verbose:bool = False) -> dict:
+        return self.working_tree.to_dict(verbose)
 
     def _compute_max_work_id(self) -> int:
         """Compute the maximum parse-step ID found in self.working_tree."""
