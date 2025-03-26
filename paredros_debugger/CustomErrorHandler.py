@@ -170,12 +170,12 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         )
 
         # Check if the "last" node had a ruleentry that matches the current rule
-        if self.current_node and self.current_node.possible_alternatives:
+        if self.current_node and self.current_node.possible_transitions:
             if self.current_node.matches_rule_entry(ruleName):
                 # Look for the alternative that matched the rule and mark it as chosen
-                for i, (alt_state, tokens) in enumerate(self.current_node.possible_alternatives):
+                for i, (alt_state, tokens) in enumerate(self.current_node.possible_transitions):
                     if any(t.startswith('Rule') and ruleName in t for t in tokens):
-                        self.current_node.chosen_index = i + 1
+                        self.current_node.chosen_transition_index = i + 1
                         break
 
         self.current_node = node
@@ -222,10 +222,10 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         alternatives = self.traversal.follow_transitions(state, recognizer)
 
         # Update previous node if the current token matches an alternative
-        if self.current_node and self.current_node.possible_alternatives:
+        if self.current_node and self.current_node.possible_transitions:
             if self.current_node.matches_token(token_str):
                 # We matched a token - mark it as chosen path
-                self.current_node.chosen_index = self.current_node.get_matching_alternative(token_str)
+                self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(token_str)
 
         # Create new node in the traversal
         node = self.traversal.add_decision_point(
@@ -238,7 +238,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             "Token consume",
             token_stream=token_stream
         )
-        node.chosen_index = 1  # Token matches are single pathed
+        node.chosen_transition_index = 1  # Token matches are single pathed
         
         self.current_node = node
         return node
@@ -246,10 +246,10 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
     def _create_rule_entry_node(self, recognizer, rule_name, state, lookahead, consumed_tokens, token_stream, maxLookahead):
         """Create a parse node for rule entry"""
         # Update previous node if it was waiting for this rule
-        if self.current_node and self.current_node.chosen_index == -1:
-            for alt_idx, (target_state, tokens) in enumerate(self.current_node.possible_alternatives):
+        if self.current_node and self.current_node.chosen_transition_index == -1:
+            for alt_idx, tokens in enumerate(self.current_node.possible_transitions):
                 if any(t.startswith(f'Rule {rule_name}') for t in tokens):
-                    self.current_node.chosen_index = alt_idx + 1
+                    self.current_node.chosen_transition_index = alt_idx + 1
                     break
         
         alternatives = self.traversal.follow_transitions(state, recognizer)
@@ -268,14 +268,14 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         
         # Set chosen alternative
         if len(alternatives) == 1:
-            node.chosen_index = 1
+            node.chosen_transition_index = 1
         else:
-            for alt_idx, (target_state, tokens) in enumerate(alternatives):
+            for alt_idx, tokens in enumerate(alternatives):
                 if any(t == 'Exit' for t in tokens):
-                    node.chosen_index = alt_idx + 1
+                    node.chosen_transition_index = alt_idx + 1
                     break
             else:
-                node.chosen_index = -1
+                node.chosen_transition_index = -1
         
         self.current_node = node
         return node
@@ -283,10 +283,10 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
     def _create_rule_exit_node(self, recognizer, rule_name, state, lookahead, consumed_tokens, token_stream):
         """Create a parse node for rule exit"""
         # Update previous node if it was waiting for an exit
-        if self.current_node and self.current_node.chosen_index == -1:
-            for alt_idx, (target_state, tokens) in enumerate(self.current_node.possible_alternatives):
+        if self.current_node and self.current_node.chosen_transition_index == -1:
+            for alt_idx, tokens in enumerate(self.current_node.possible_transitions):
                 if any(t == 'Exit' for t in tokens):
-                    self.current_node.chosen_index = alt_idx + 1
+                    self.current_node.chosen_transition_index = alt_idx + 1
                     break
         
         node = self.traversal.add_decision_point(
@@ -299,6 +299,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             "Rule exit",
             token_stream=token_stream
         )
-        node.chosen_index = 1
+        node.chosen_transition_index = 1
         self.current_node = node
         return node

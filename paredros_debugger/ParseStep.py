@@ -12,13 +12,13 @@ Each node maintains:
 - Its current ATN state and parser context
 - Available parsing alternatives
 - Chosen alternative
-- Links to parent/next nodes
+- Links to previous/next nodes
 - Alternative paths that could have been taken
 
 The node structure forms a directed graph where:
 - next_node points to the sequential parsing path
-- next_node_alternatives contain branching possibilities
-- parent points to the previous parsing step
+- alternative_branches contain branching possibilities
+- previous_node points to the previous parsing step
 
 Example node types:
 - Decision: Parser choosing between multiple valid paths
@@ -36,7 +36,7 @@ from antlr4.BufferedTokenStream import TokenStream
 from antlr4.Parser import Parser
 
 class ParseStep:
-    def __init__(self, state, current_token, lookahead, possible_alternatives, input_text, rule, node_type, token_stream:TokenStream, parent_id=-1):
+    def __init__(self, atn_state, current_token, lookahead, possible_transitions, input_text, rule, node_type, token_stream:TokenStream, previous_id=-1):
         """
         Initialize a new parse node.
 
@@ -44,31 +44,41 @@ class ParseStep:
             state: ATN state number or object
             current_token: Current token being processed
             lookahead: List of upcoming tokens
-            possible_alternatives: Available parsing alternatives to traverse into as (state, tokens) pairs
+            possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
             input_text: Current input context with cursor position
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
-            parent_id: ID of parent node for sequential numbering (-1 for root)
+            previous_node_id: ID of previous node for sequential numbering (-1 for root)
         """
-        self.state = state                                  # ATN state number
-        self.current_token = current_token                  # Current token being processed 
-        self.lookahead = lookahead                          # List of upcoming tokens
-        self.chosen_index = -1                              # Chosen alternative (if known)
-        self.input_text = input_text                        # Current input context
-        self.next_node = None                               # Next node in the traversal sequence           
-        self.parent = None                                  # Parent node
-        self.possible_alternatives : list[tuple[int, list[str]]] = possible_alternatives  # Available parsing alternatives
-        self.next_node_alternatives : list[ParseStep] = []  # The nodes that follow the next transition from this node
-        self.id = (parent_id + 1) if isinstance(parent_id, int) and parent_id >= 0 else 0  # Unique ID within its branch
-        self.rule_name = rule                               # Current rule name
-        self.has_error = False                              # Flag for error nodes
-        self.node_type = node_type                          # Type of node (Decision, Rule, Token, Error)
-        self.matching_error = False                         # Flag for token matching errors
-        self.token_stream = token_stream                    # Token stream for the current node
-        self.next_input_token = None                        # current input Lexer token being processed
-        self.next_input_literal = None                      # current input literal token being processed
 
-    def add_next_node(self, next_node):
+        # Node information
+        self.id = (previous_id + 1) if isinstance(previous_id, int) and previous_id >= 0 else 0
+        self.node_type = node_type # "Decision", "Rule entry", "Rule exit", "Token consume", "Error"
+        self.has_error = False
+
+        # Graph relationships
+        self.previous_node = None
+        self.next_node = None
+        self.alternative_branches: list[ParseStep] = []
+
+        # Rule and grammar context
+        self.rule_name = rule
+        self.state = atn_state
+
+        # Token and input information
+        self.current_token = current_token
+        self.token_stream = token_stream
+        self.input_text = input_text
+        self.lookahead = lookahead
+        self.next_input_token = None
+        self.next_input_literal = None
+
+        # Decision tracking
+        self.chosen_transition_index = -1
+        self.possible_transitions = possible_transitions
+        self.matching_error = False
+
+    def add_next_node(self, next_node: 'ParseStep'):
         """
         Add a sequential transition to the next node in the parse traversal.
         This represents the actual path taken during parsing.
@@ -77,14 +87,14 @@ class ParseStep:
             next_node (ParseStep): The node to add as the next sequential step
 
         Note:
-            - Sets bidirectional link between nodes (next_node and parent)
+            - Sets bidirectional link between nodes (next_node and previous_node)
             - Updates the next node's ID to maintain sequential numbering
         """
         self.next_node = next_node
-        next_node.parent = self
+        next_node.previous_node = self
         next_node.id = self.id + 1
 
-    def add_alternative_node(self, alt_node):
+    def add_alternative_node(self, alt_node: 'ParseStep'):
         """
         Add a branching alternative node representing a possible parse path.
         These nodes represent paths the parser could have taken but didn't.
@@ -94,11 +104,11 @@ class ParseStep:
 
         Note:
             - Alternative nodes get IDs like "Alt 1", "Alt 2" etc.
-            - Sets parent link back to this node
+            - Sets previous_node link back to this node
         """
-        self.next_node_alternatives.append(alt_node)
-        alt_node.parent = self
-        alt_node.id = str(self.id) + "." + str(len(self.next_node_alternatives))
+        self.alternative_branches.append(alt_node)
+        alt_node.previous_node = self
+        alt_node.id = str(self.id) + "." + str(len(self.alternative_branches))
 
     def set_error(self):
         """Mark this node as having an error"""
@@ -123,7 +133,7 @@ class ParseStep:
         Returns:
             bool: True if one of the alternatives enters this rule
         """
-        for alt_state, tokens in self.possible_alternatives:
+        for alt_state, tokens in self.possible_transitions:
             if any(t.startswith('Rule') and ruleName in t for t in tokens):
                 return True
         return False
@@ -143,7 +153,7 @@ class ParseStep:
         # Handle literals
         if token_str.startswith("Literal"):
             literal_value = token_str.split("'")[1]  # Extract '(' from "Literal ('(')"
-            for target_state, tokens in self.possible_alternatives:
+            for target_state, tokens in self.possible_transitions:
                 if any(t.startswith("'") and t.strip("'") == literal_value for t in tokens):
                     return True
         # Handle token types
@@ -152,7 +162,7 @@ class ParseStep:
             token_type = token_parts[0]         # Get "INT"
             token_instance = token_str.split("'")[1]  # Get "4" from "('4')"
 
-            for target_state, tokens in self.possible_alternatives:
+            for target_state, tokens in self.possible_transitions:
                 # Check if either the token type or the actual value matches
                 if any(t == token_type or token_instance == t.strip("'") for t in tokens):
                     return True
@@ -172,7 +182,7 @@ class ParseStep:
         # Handle literals
         if token_str.startswith("Literal"):
             literal_value = token_str.split("'")[1]
-            for i, (target_state, tokens) in enumerate(self.possible_alternatives):
+            for i, (target_state, tokens) in enumerate(self.possible_transitions):
                 if any(t.startswith("'") and t.strip("'") == literal_value for t in tokens):
                     return i + 1
         # Handle token types
@@ -180,7 +190,7 @@ class ParseStep:
             token_parts = token_str.split(" ") 
             token_type = token_parts[0]  
             token_instance = token_str.split("'")[1]
-            for i, (target_state, tokens) in enumerate(self.possible_alternatives):
+            for i, (target_state, tokens) in enumerate(self.possible_transitions):
                 if any(t == token_type or token_instance == t.strip("'") for t in tokens):
                     return i + 1
         return -1
@@ -264,10 +274,10 @@ class ParseStep:
             "node_type": self.node_type,
             "state": str(self.state),
             "current_token": str(self.current_token),
-            "chosen": self.chosen_index,
+            "chosen": self.chosen_transition_index,
             "input_text": self.input_text,
             "matching_error": self.matching_error,
-            "possible_alternatives": str(self.possible_alternatives),
+            "possible_transitions": str(self.possible_transitions),
             "next_input_token": self.next_input_token,
             "next_input_literal": self.next_input_literal,
         }

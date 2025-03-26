@@ -18,7 +18,7 @@ class ParseTreeExplorer:
       - If next_id == max_work_id + 1, we handle expansions manually (like alt expansions).
       - If user tries to jump beyond that range, we error or skip.
 
-    Decision = parseStep.possible_alternatives > 1.
+    Decision = parseStep.possible_transitions > 1.
 
     Alt expansions:
       - We call expand_alternatives() if the current step is a decision step.
@@ -117,7 +117,7 @@ class ParseTreeExplorer:
             step = self.current_step
             if not step:
                 raise RuntimeError(f"No parse step at ID={self.current_step_id} to expand from.")
-            if step.chosen_index != -1:
+            if step.chosen_transition_index != -1:
                 self._cut_to_step(next_id)
                 return
             
@@ -180,7 +180,7 @@ class ParseTreeExplorer:
 
         while True:
             cur_step = self.current_step
-            if cur_step and len(cur_step.possible_alternatives) > 1:
+            if cur_step and len(cur_step.possible_transitions) > 1:
                 # already at a decision => break
                 return
             # else step forward by 1
@@ -199,7 +199,7 @@ class ParseTreeExplorer:
         while self.current_step_id > 0:
             self.go_back_one_step()
             step = self.current_step
-            if step and len(step.possible_alternatives) > 1:
+            if step and len(step.possible_transitions) > 1:
                 return
             
     # -------------------------------------------------------------------------
@@ -207,7 +207,7 @@ class ParseTreeExplorer:
     # -------------------------------------------------------------------------
     def expand_alternatives(self):
         """
-        If the current step is a 'decision' (multiple possible_alternatives),
+        If the current step is a 'decision' (multiple possible_transitions),
         create new alt steps with fresh IDs > max_orig_id, attach them to the working_tree.
         Then user can pick one or cancel. 
         
@@ -218,7 +218,7 @@ class ParseTreeExplorer:
             self.cancel_alt_expansion()
 
         step = self.current_step
-        # if len(step.possible_alternatives) < 2:
+        # if len(step.possible_transitions) < 2:
         #    raise RuntimeError("This step does not have multiple alternatives to expand.")
 
         # Find the parseTreeNode in the working_tree
@@ -227,9 +227,9 @@ class ParseTreeExplorer:
         self._expanded_alt_nodes.clear()
         self._expanded_alt_ptnodes.clear()
 
-        # Get alternatives for each possible choice in possible_alternatives
+        # Get alternatives for each possible choice in possible_transitions
         possible_steps: list[ParseStep] = []
-        for alt_index in range(len(step.possible_alternatives)):
+        for alt_index in range(len(step.possible_transitions)):
             # Get the ParseStep for this alternative (alt_index is 0-based, method expects 1-based)
             alt_step = self._traversal.expand_alternative(step, alt_index + 1)
             if alt_step:
@@ -242,7 +242,7 @@ class ParseTreeExplorer:
             alt_ptnode.trace_steps.append(alt_step)
                 
             # Mark this as an alternative node
-            if step.chosen_index and not idx+1 == step.chosen_index:
+            if step.chosen_transition_index and not idx+1 == step.chosen_transition_index:
                 alt_step.node_type = "alt_node"
             
             # Add this alternative ParseTreeNode as a child of the current ptnode
@@ -267,7 +267,7 @@ class ParseTreeExplorer:
         
         self._in_alternative_expansion_mode = False
 
-        if alt_index == self.current_step.chosen_index:
+        if alt_index == self.current_step.chosen_transition_index:
             self.current_step_id += 1
             self._cut_to_step(self.current_step_id)
             return

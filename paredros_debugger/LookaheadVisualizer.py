@@ -95,6 +95,6 @@ class LookaheadVisualizer(ParserATNSimulator):
             "Decision",
             token_stream=copy_token_stream(self.parser.getTokenStream())
             )
-        node.chosen_index = prediction
+        node.chosen_transition_index = prediction
 
         return prediction
