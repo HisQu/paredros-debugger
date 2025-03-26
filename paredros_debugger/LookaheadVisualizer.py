@@ -15,6 +15,7 @@ a complete picture of the parsing process.
 
 from antlr4 import *
 from paredros_debugger.utils import copy_token_stream
+from paredros_debugger.ParseTraversal import ParseTraversal
 
 class LookaheadVisualizer(ParserATNSimulator):
     """
@@ -57,7 +58,7 @@ class LookaheadVisualizer(ParserATNSimulator):
 
         # Show lookahead information
 
-        traversal = self.parser._errHandler.traversal
+        traversal: ParseTraversal = self.parser._errHandler.traversal
 
         current_token = input.LT(1)
         lookahead = traversal._get_lookahead_tokens(self.parser, input, self.lookahead_depth)

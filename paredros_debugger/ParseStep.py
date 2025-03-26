@@ -56,11 +56,9 @@ class ParseStep:
         self.chosen_index = -1                              # Chosen alternative (if known)
         self.input_text = input_text                        # Current input context
         self.next_node = None                               # Next node in the traversal sequence           
-        self.next_node_verbose = None                       # Verbose representation of the next node
         self.parent = None                                  # Parent node
         self.possible_alternatives : list[tuple[int, list[str]]] = possible_alternatives  # Available parsing alternatives
         self.next_node_alternatives : list[ParseStep] = []  # The nodes that follow the next transition from this node
-        self.next_node_alternatives_verbose = []            # Verbose representation of the alternative nodes
         self.id = (parent_id + 1) if isinstance(parent_id, int) and parent_id >= 0 else 0  # Unique ID within its branch
         self.rule_name = rule                               # Current rule name
         self.has_error = False                              # Flag for error nodes
@@ -86,26 +84,6 @@ class ParseStep:
         next_node.parent = self
         next_node.id = self.id + 1
 
-    def get_verbose_node(self):
-        """
-        Get the verbose representation of the next node
-        
-        Args:
-            None
-        
-        Returns:
-            str: Verbose representation of the next node
-        """
-        if self.next_node is None:
-            return None
-        return f"state: {self.next_node.state}, rule_name: {self.next_node.rule_name}, node_type: {self.next_node.node_type}"
-
-    def get_next_node_alternatives_verbose(self):
-        """Get the verbose representation of the possible alternatives"""
-        for alternative in self.next_node_alternatives:
-            self.next_node_alternatives_verbose.append(f"name: {alternative.rule_name}, state: {alternative.state}, tokens: {alternative.current_token}")
-        return self.next_node_alternatives_verbose
-
     def add_alternative_node(self, alt_node):
         """
         Add a branching alternative node representing a possible parse path.
@@ -122,19 +100,9 @@ class ParseStep:
         alt_node.parent = self
         alt_node.id = str(self.id) + "." + str(len(self.next_node_alternatives))
 
-    def get_unique_identifier(self):
-        """Get unique identifier combining ID and state"""
-        return f"{self.id}"
-
     def set_error(self):
         """Mark this node as having an error"""
         self.has_error = True
-
-    def print_attributes(self):
-        """Pretty Print the object's attributes."""
-        self.next_node_verbose = self.get_verbose_node()
-        self.next_node_alternatives_verbose = self.get_next_node_alternatives_verbose()
-        pprint(vars(self))
 
     def get_attributes_next_node(self):
         """Returns the object's attributes as a dictionary."""
