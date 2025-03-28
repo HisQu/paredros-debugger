@@ -230,7 +230,7 @@ class ParseTraversal:
                     target_state,
                     current_token,
                     lookahead,
-                    [],  # No alternatives for alternative nodes yet
+                    [],  # No transitions for alternative nodes yet
                     input_text,
                     rule_name,
                     node_type,
@@ -285,24 +285,10 @@ class ParseTraversal:
                     alt_node.node_type,
                     token_stream=copy_token_stream(alt_node.token_stream)
                 )
+
+                # The next possible transition is a symbolic token --> model consumption
                 if token in self.parser.symbolicNames:
-                    # match check
-                    child_node.matching_error = (alt_node.current_token != token)
-                    # consume token manually
-                    child_node.token_stream.consume()
-                    next_token = child_node.token_stream.tokens[child_node.token_stream.index]
-                    child_node.current_token = self.parser.symbolicNames[next_token.type]
-                    child_node.input_text = self._get_consumed_tokens(child_node.token_stream, 3)
-                    child_node.lookahead = self._get_lookahead_tokens(self.parser, child_node.token_stream, 3)
-                    # debug info for next token
-                    if child_node.token_stream.index < len(child_node.token_stream.tokens):
-                        # the next lookahead token
-                        upcoming_token = child_node.token_stream.LT(1)
-                        child_node.next_input_token = self.parser.symbolicNames[upcoming_token.type]
-                        child_node.next_input_literal = upcoming_token.text
-                    else:
-                        child_node.next_input_token = None
-                        child_node.next_input_literal = None
+                    self._update_token_info_after_consume(child_node, token)
 
                 alt_node.add_alternative_node(child_node)
 
@@ -410,6 +396,40 @@ class ParseTraversal:
         if self.root:
             return search_node(self.root)
         return None
+
+    def _update_token_info_after_consume(self, node: ParseStep, expected_token: str):
+        """
+        Update a node's state after consuming a token from its token stream.
+        This includes updating token matching status, current token info, and lookahead info.
+        
+        Args:
+            node: The node to update
+            expected_token: The token name that was expected at this point
+        """
+        # Check if token matches expectations
+        node.matching_error = (node.current_token != expected_token)
+        
+        # Consume token and update node state
+        node.token_stream.consume()
+        if node.token_stream.index < len(node.token_stream.tokens):
+            next_token = node.token_stream.tokens[node.token_stream.index]
+            node.current_token = self.parser.symbolicNames[next_token.type]
+            
+            # Update input context and lookahead
+            node.input_text = self._get_consumed_tokens(node.token_stream, 3)
+            node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
+            
+            # Set next token information
+            upcoming_token = node.token_stream.LT(1)
+            if upcoming_token:
+                node.next_input_token = self.parser.symbolicNames[upcoming_token.type]
+                node.next_input_literal = upcoming_token.text
+            else:
+                node.next_input_token = None
+                node.next_input_literal = None
+        else:
+            node.next_input_token = None
+            node.next_input_literal = None
 
     def group_and_merge(self):
         """
