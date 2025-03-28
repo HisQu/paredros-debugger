@@ -30,13 +30,23 @@ Example node types:
 
 from pprint import pprint
 import json
+from typing import List, Tuple
 
 from antlr4.atn.Transition import *
 from antlr4.BufferedTokenStream import TokenStream
 from antlr4.Parser import Parser
 
 class ParseStep:
-    def __init__(self, atn_state, current_token, lookahead, possible_transitions, input_text, rule, node_type, token_stream:TokenStream, previous_id=-1):
+    def __init__(self, 
+                 atn_state, 
+                 current_token, 
+                 lookahead, 
+                 possible_transitions: List[Tuple[int, List[str]]], 
+                 input_text: str, 
+                 rule: str, 
+                 node_type: str, 
+                 token_stream:TokenStream, 
+                 previous_id: int = -1):
         """
         Initialize a new parse node.
 
@@ -48,7 +58,7 @@ class ParseStep:
             input_text: Current input context with cursor position
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
-            previous_node_id: ID of previous node for sequential numbering (-1 for root)
+            previous_id: ID of previous node for sequential numbering (-1 for root)
         """
 
         # Node information
@@ -59,7 +69,7 @@ class ParseStep:
         # Graph relationships
         self.previous_node = None
         self.next_node = None
-        self.alternative_branches: list[ParseStep] = []
+        self.alternative_branches: List[ParseStep] = []
 
         # Rule and grammar context
         self.rule_name = rule
@@ -75,7 +85,7 @@ class ParseStep:
 
         # Decision tracking
         self.chosen_transition_index = -1
-        self.possible_transitions = possible_transitions
+        self.possible_transitions: List[Tuple[int, List[str]]] = possible_transitions
         self.matching_error = False
 
     def add_next_node(self, next_node: 'ParseStep'):
