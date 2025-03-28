@@ -207,18 +207,6 @@ class ParseTraversal:
             - Maintains the graph structure by linking nodes appropriately
             - Root node is set to first created node
         """
-        if (self.current_node and 
-            int(str(self.current_node.state)) == int(str(state)) and  
-            self.current_node.chosen_transition_index == -1):
-            # Update current node
-            self.current_node.possible_transitions = possible_transitions
-            self.current_node.lookahead = lookahead
-            self.current_node.input_text = input_text
-            self.current_node.current_token = current_token
-            self.current_node.rule_name = current_rule
-            self.current_node.node_type = node_type
-            self.current_node.token_stream = token_stream
-            return self.current_node
 
         # Create node if no duplicate found
         new_node = ParseStep(state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream)
@@ -232,7 +220,7 @@ class ParseTraversal:
             self.current_node = new_node
 
         if possible_transitions:
-            for alt_num, (target_state, tokens) in enumerate(possible_transitions):
+            for alt_num, (target_state, _) in enumerate(possible_transitions):
 
                 state = self.parser._interp.atn.states[target_state]
                 rule_index = state.ruleIndex if hasattr(state, "ruleIndex") else -1
@@ -248,10 +236,10 @@ class ParseTraversal:
                     node_type,
                     token_stream
                 )
-                alt_node.matching_error = alt_node.check_token_match(self.parser)
+                alt_node.matching_error = alt_node.has_token_mismatch(self.parser)
                 new_node.add_alternative_node(alt_node)
         
-        new_node.matching_error = new_node.check_token_match(self.parser)
+        new_node.matching_error = new_node.has_token_mismatch(self.parser)
 
         return new_node
 
@@ -318,7 +306,7 @@ class ParseTraversal:
 
                 alt_node.add_alternative_node(child_node)
 
-            alt_node.matching_error = alt_node.check_token_match(self.parser)
+            alt_node.matching_error = alt_node.has_token_mismatch(self.parser)
 
         return alt_node
     
@@ -509,7 +497,7 @@ class ParseTraversal:
 
             # Create merged node
             merged_node = ParseStep(
-                state=group[0].state, 
+                atn_state=group[0].state, 
                 current_token=group[-1].current_token,  
                 lookahead=group[-1].lookahead,  
                 possible_transitions=all_alternatives,  

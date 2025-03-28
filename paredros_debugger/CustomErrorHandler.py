@@ -173,7 +173,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         if self.current_node and self.current_node.possible_transitions:
             if self.current_node.matches_rule_entry(ruleName):
                 # Look for the alternative that matched the rule and mark it as chosen
-                for i, (alt_state, tokens) in enumerate(self.current_node.possible_transitions):
+                for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
                     if any(t.startswith('Rule') and ruleName in t for t in tokens):
                         self.current_node.chosen_transition_index = i + 1
                         break
@@ -247,7 +247,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         """Create a parse node for rule entry"""
         # Update previous node if it was waiting for this rule
         if self.current_node and self.current_node.chosen_transition_index == -1:
-            for alt_idx, tokens in enumerate(self.current_node.possible_transitions):
+            for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
                 if any(t.startswith(f'Rule {rule_name}') for t in tokens):
                     self.current_node.chosen_transition_index = alt_idx + 1
                     break
@@ -270,7 +270,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         if len(alternatives) == 1:
             node.chosen_transition_index = 1
         else:
-            for alt_idx, tokens in enumerate(alternatives):
+            for alt_idx, (_, tokens) in enumerate(alternatives):
                 if any(t == 'Exit' for t in tokens):
                     node.chosen_transition_index = alt_idx + 1
                     break
@@ -284,7 +284,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         """Create a parse node for rule exit"""
         # Update previous node if it was waiting for an exit
         if self.current_node and self.current_node.chosen_transition_index == -1:
-            for alt_idx, tokens in enumerate(self.current_node.possible_transitions):
+            for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
                 if any(t == 'Exit' for t in tokens):
                     self.current_node.chosen_transition_index = alt_idx + 1
                     break

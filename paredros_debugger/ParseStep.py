@@ -30,17 +30,19 @@ Example node types:
 
 from pprint import pprint
 import json
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
-from antlr4.atn.Transition import *
+from antlr4.atn.Transition import Transition, AtomTransition, SetTransition
+from antlr4.atn.ATNState import ATNState
+from antlr4 import Token
 from antlr4.BufferedTokenStream import TokenStream
 from antlr4.Parser import Parser
 
 class ParseStep:
     def __init__(self, 
-                 atn_state, 
-                 current_token, 
-                 lookahead, 
+                 atn_state: Any, 
+                 current_token: Any, 
+                 lookahead: List[Any], 
                  possible_transitions: List[Tuple[int, List[str]]], 
                  input_text: str, 
                  rule: str, 
@@ -51,7 +53,7 @@ class ParseStep:
         Initialize a new parse node.
 
         Args:
-            state: ATN state number or object
+            atn_state: ATN state number or object
             current_token: Current token being processed
             lookahead: List of upcoming tokens
             possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
@@ -124,11 +126,11 @@ class ParseStep:
         """Mark this node as having an error"""
         self.has_error = True
 
-    def get_attributes_next_node(self):
+    def get_next_step_as_json(self):
         """Returns the object's attributes as a dictionary."""
         return json.dumps(vars(self.next_node), indent=4, ensure_ascii=False)
 
-    def get_attributes_as_json(self):
+    def get_step_as_json(self):
         """Returns the object's attributes as a JSON string."""
         return json.dumps(vars(self), indent=4, ensure_ascii=False)
 
@@ -205,7 +207,7 @@ class ParseStep:
                     return i + 1
         return -1
     
-    def check_token_match(self, recognizer: Parser) -> bool:
+    def has_token_mismatch(self, recognizer: Parser) -> bool:
         """
         Check if the current token matches the expected token from ATN transitions.
         First checks token type match, then falls back to literal value match.
