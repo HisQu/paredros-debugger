@@ -35,17 +35,17 @@ class CustomParser(Parser):
 
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]
-        self._errHandler._handle_parser_event("rule_entry", self, rule_name)
+        self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
         super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
         rule_name = self.ruleNames[self._ctx.getRuleIndex()]
-        self._errHandler._handle_parser_event("rule_exit", self, rule_name) 
+        self._errHandler.traversal._handle_parser_event("rule_exit", self, rule_name) 
         super().exitRule()
 
     def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
         rule_name = self.ruleNames[ruleIndex]
-        self._errHandler._handle_parser_event("rule_entry", self, rule_name)
+        self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
     def match(self, ttype):
@@ -53,5 +53,5 @@ class CustomParser(Parser):
     
     def consume(self):
         t = self.getCurrentToken()
-        self._errHandler._handle_parser_event("token_consume", self, None, t)
+        self._errHandler.traversal._handle_parser_event("token_consume", self, None, t)
         return super().consume()
