@@ -75,7 +75,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     parse_info.parse(input_file)  # run the parse
 
     # Check if at least one node had a parse error
-    had_error = any(node.has_error for node in parse_info.traversal.all_steps)
+    had_error = any(node.is_error_node for node in parse_info.traversal.all_steps)
     if had_error:
         print("=== Parsing completed: Errors were encountered. ===")
     else:
@@ -126,9 +126,9 @@ def interactive_explorer_repl(
             print(f" Node Type: {cur_node.node_type}")
             print(f" Rule Name: {cur_node.rule_name}")
             print(f" Current Token: {cur_node.current_token}")
-            print(f" Chosen Alt: {cur_node.chosen_index}")
+            print(f" Chosen Alt: {cur_node.chosen_transition_index}")
             print(f" Matching Error? {cur_node.matching_error}")
-            print(f" Possible Alts: {len(cur_node.possible_alternatives)}")
+            print(f" Possible Alts: {len(cur_node.possible_transitions)}")
             if cur_node.next_input_token or cur_node.next_input_literal:
                 print(f" Next Input Token: {cur_node.next_input_token}")
                 print(f" Next Input Literal: {cur_node.next_input_literal}")
@@ -153,8 +153,8 @@ def interactive_explorer_repl(
             # If we're in alt-expansion mode, choose the default alt
             if explorer._in_alternative_expansion_mode:
                 default_alt = 1
-                if cur_node and cur_node.chosen_index > 0:
-                    default_alt = cur_node.chosen_index
+                if cur_node and cur_node.chosen_transition_index > 0:
+                    default_alt = cur_node.chosen_transition_index
                 try:
                     explorer.choose_alternative(default_alt)
                     print(f"Chose default alternative #{default_alt}")
@@ -211,8 +211,8 @@ def interactive_explorer_repl(
             if alt_str == "":
                 # default alt
                 default_alt = 1
-                if cur_node and cur_node.chosen_index > 0:
-                    default_alt = cur_node.chosen_index
+                if cur_node and cur_node.chosen_transition_index > 0:
+                    default_alt = cur_node.chosen_transition_index
                 try:
                     explorer.choose_alternative(default_alt)
                     print(f"Chose default alternative #{default_alt}")

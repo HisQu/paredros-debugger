@@ -47,7 +47,7 @@ The debugger visualizes ANTLR's parsing process through the Augmented Transition
 - **Parser Traversal Graph**: Our custom data structure that captures the parser's path through the ATN as a connected network of nodes
 - **Node**: A point in the parsing process representing a parser state (rule entry, token match, etc.)
 - **Child Node**: The next sequential step in the parsing process
-- **Parent Node**: The previous step in the parsing process
+- **Previous Node**: The previous step in the parsing process
 - **Alternatives**: Different possible paths the parser could take from a given state
 - **Parse Path**: The actual sequence of states the parser follows to process your input
 
