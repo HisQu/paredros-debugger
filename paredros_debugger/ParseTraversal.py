@@ -207,18 +207,7 @@ class ParseTraversal:
             - Maintains the graph structure by linking nodes appropriately
             - Root node is set to first created node
         """
-        if (self.current_node and 
-            int(str(self.current_node.state)) == int(str(state)) and  
-            self.current_node.chosen_transition_index == -1):
-            # Update current node
-            self.current_node.possible_transitions = possible_transitions
-            self.current_node.lookahead = lookahead
-            self.current_node.input_text = input_text
-            self.current_node.current_token = current_token
-            self.current_node.rule_name = current_rule
-            self.current_node.node_type = node_type
-            self.current_node.token_stream = token_stream
-            return self.current_node
+    
 
         # Create node if no duplicate found
         new_node = ParseStep(state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream)
@@ -661,7 +650,7 @@ class ParseTraversal:
             )
 
             merged_node.id = group[0].id  # Use first node's ID
-            merged_node.has_error = any(n.has_error for n in group)  # Mark as error if any node has error
+            merged_node.is_error_node = any(n.is_error_node for n in group)  # Mark as error if any node has error
             merged_node.alternative_branches = all_alt_nodes  # Use all alternative nodes
             merged_node.chosen_transition_index = new_chosen
             merged_nodes.append((group, merged_node))

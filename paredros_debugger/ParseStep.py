@@ -61,12 +61,15 @@ class ParseStep:
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
             previous_id: ID of previous node for sequential numbering (-1 for root)
+            is_error_node: Flag indicating if this node is an error state
+            has_error: Flag indicating that the current token does not match what the grammar expects
+            token_stream: The token stream being processed
         """
 
         # Node information
         self.id = (previous_id + 1) if isinstance(previous_id, int) and previous_id >= 0 else 0
         self.node_type = node_type # "Decision", "Rule entry", "Rule exit", "Token consume", "Error"
-        self.has_error = False
+        self.is_error_node = False
 
         # Graph relationships
         self.previous_node = None
@@ -124,7 +127,7 @@ class ParseStep:
 
     def set_error(self):
         """Mark this node as having an error"""
-        self.has_error = True
+        self.is_error_node = True
 
     def get_next_step_as_json(self):
         """Returns the object's attributes as a dictionary."""
