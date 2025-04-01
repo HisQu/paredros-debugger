@@ -255,22 +255,22 @@ class ParseTraversal:
 
         return new_node
 
-    def expand_alternative(self, node: ParseStep, alternative_index: int):
-        """Create a new branch from the given node for the specified alternative
+    def expand_transition(self, node: ParseStep, transition_index: int):
+        """Create a new branch from the given node for the specified transition
 
         Args:
-            node (ParseStep): The node containing the alternative to expand
-            alternative_index (int): Index of the alternative to expand (1-based)
+            node (ParseStep): The node containing the transition to expand
+            transition_index (int): Index of the transition to expand (1-based)
 
         Returns:
-            ParseStep: The expanded alternative node with its new possible transitions
+            ParseStep: The expanded transition node with its new possible transitions
         """
-        if not node or alternative_index < 1 or alternative_index > len(node.alternative_branches):
+        if not node or transition_index < 1 or transition_index > len(node.alternative_branches):
             return None
 
         # Get the state of the node we want to expand
-        alt_node = node.alternative_branches[alternative_index - 1]
-        target_state_num = node.possible_transitions[alternative_index - 1][0]
+        alt_node = node.alternative_branches[transition_index - 1]
+        target_state_num = node.possible_transitions[transition_index - 1][0]
         target_state = self.parser._interp.atn.states[target_state_num]
 
         # Get all possible transitions and update node
@@ -502,7 +502,7 @@ class ParseTraversal:
         if self.current_node and self.current_node.possible_transitions:
             if self.current_node.matches_token(token_str):
                 # We matched a token - mark it as chosen path
-                self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(token_str)
+                self.current_node.chosen_transition_index = self.current_node.get_matching_transitions(token_str)
 
     def _process_rule_entry_node(self, node:ParseStep, rule_name, transitions):
         """Sets the rulenode specific properties and updates the previous node"""
