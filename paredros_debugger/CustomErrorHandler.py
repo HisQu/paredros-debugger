@@ -72,14 +72,15 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
     def reportError(self, recognizer:Parser, e:RecognitionException):
         """
-        Enhance default Report Error and report an error to the parser and record the error in the parse traversal.
+        Records an error in the parse traversal graph and delegates to the superclass 
+        implementation for actual error handling.
+
+        This method ensures the first error encountered is marked in the parse graph to
+        help with debugging, but only tracks the first error occurrence.
 
         Args:
             recognizer (Parser): The parser instance.
             e (RecognitionException): The recognition exception that occurred.
-
-        Returns:
-            None
         """
         print(f"ERROR type: {type(e)}")
         # Only track first error
@@ -87,98 +88,25 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             print(f"report called")
             self.error_occurred = True
 
-            # Create final error node to indicate where parsing failed
-            state = recognizer._interp.atn.states[recognizer.state]
-            rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
-            token = recognizer.getCurrentToken()
-            lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
-            token_str = self.traversal._token_str(recognizer, token)
-            alternatives = self.traversal.follow_transitions(state, recognizer)
-
-            # Add final error node
-            node = self.traversal.add_decision_point(
-                state,
-                token_str,
-                lookahead,
-                alternatives,
-                self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
-                rule,
-                "Error",
-                token_stream=copy_token_stream(recognizer.getTokenStream())
-            )
-            node.set_error()
-
+        self.traversal.create_node(recognizer, "Error")
         super().reportError(recognizer, e)
-
-    def recover(self, recognizer:Parser, e:RecognitionException):
-        """
-        Enhance standard recovery and attempt to recover from a recognition exception with
-        verbose logging.
-
-        Args:
-            recognizer (Parser): The parser instance.
-            e (RecognitionException): The recognition exception that occurred.
-
-        Returns:
-            None
-        """
-        print("Recovering")
-        print(f"[ErrorStrategy] Attempting recovery in state {recognizer.state} with token {e.offendingToken}")
-        super().recover(recognizer, e)
 
     def sync(self, recognizer:Parser):
         """
-        Enhance standard sync and attempt to synchronize the parser after a recognition exception
-        with verbose logging.
+        Records a sync event in the parse traversal graph and delegates to the superclass
+        implementation for token resynchronization.
+
+        This method adds a sync node to the parse graph to track parser recovery attempts,
+        but only if no errors have occurred yet.
 
         Args:
             recognizer (Parser): The parser instance.
-
-        Returns:
-            None
         """
         # Only add states if no error occurred
         if self.error_occurred:
             return
 
-        # Attempt the same logging style as in adaptivePredict
-        ruleIndex = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
-        ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
-        state = recognizer._interp.atn.states[recognizer.state]
-        currentToken = recognizer.getCurrentToken()
-        readableToken = self.traversal._token_str(recognizer, currentToken)
-        maxLookahead = 3
-
-        # Track sync point
-        current_token = recognizer.getCurrentToken()
-        lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(),
-                                               maxLookahead)
-        alternatives = self.traversal.follow_transitions(state, recognizer)
-        
-        input_text = self.traversal._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)
-
-        # Create new decision point node
-        node = self.traversal.add_decision_point(
-            state,
-            readableToken,
-            lookahead,
-            alternatives, 
-            input_text,
-            ruleName,
-            "Sync",
-            token_stream=copy_token_stream(recognizer.getTokenStream())
-        )
-
-        # Check if the "last" node had a ruleentry that matches the current rule
-        if self.current_node and self.current_node.possible_transitions:
-            if self.current_node.matches_rule_entry(ruleName):
-                # Look for the alternative that matched the rule and mark it as chosen
-                for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
-                    if any(t.startswith('Rule') and ruleName in t for t in tokens):
-                        self.current_node.chosen_transition_index = i + 1
-                        break
-
-        self.current_node = node
+        self.traversal.create_node(recognizer, "Sync")
         super().sync(recognizer)
 
 

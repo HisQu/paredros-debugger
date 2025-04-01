@@ -22,3 +22,5 @@ Simpleton/*.tokens
 Simpleton/*.interp
 Simpleton/*.java
 Simpleton/*.dot
+*.png
+*.dot
