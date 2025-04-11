@@ -7,7 +7,7 @@ authors = [
   { name="Georg Zwilling", email="georg.zwilling@uni-jena.de" },
 ]
 description = "A tool to debug ANTLR-generated parsers."
-readme = "readme.md"
+readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
