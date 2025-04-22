@@ -7,159 +7,523 @@
 import os
 import sys
 import subprocess
-from antlr4 import InputStream, CommonTokenStream
+from typing import Optional, Any
+
+from antlr4 import InputStream, CommonTokenStream, Token
 from antlr4.tree.Trees import Trees
 from antlr4.tree.Tree import ParseTreeWalker
 from antlr4.atn.PredictionMode import PredictionMode
 
 from paredros_debugger.LookaheadVisualizer import LookaheadVisualizer
 from paredros_debugger.DetailedParseListener import DetailedParseListener
-from paredros_debugger.UserGrammar import UserGrammar
+from paredros_debugger.UserGrammar import UserGrammar, GrammarRule 
 from paredros_debugger.ParseTreeExplorer import ParseTreeExplorer
-from paredros_debugger.ParseTraceTree import ParseTraceTree
+from paredros_debugger.ParseTraceTree import ParseTraceTree, ParseTreeNode
 from paredros_debugger.ParseTraversal import ParseTraversal
-from paredros_debugger.utils import generate_parser, modify_generated_parser, load_parser_and_lexer, get_start_rule
-
+from paredros_debugger.ParseStep import ParseStep
+from paredros_debugger.utils import (
+    generate_parser, modify_generated_parser, load_parser_and_lexer,
+    get_start_rule, token_to_dict
+)
 class ParseInformation:
-    """Handles the parsing of input using an ANTLR-generated parser and exposes the parse tree."""
-    def __init__(self, grammar_file_path):
-        self.grammar_file = os.path.abspath(grammar_file_path)
-        self.grammar_folder = os.path.dirname(self.grammar_file)
-        self.input_file = None
-        self.input_text = None
-        self.lexer_class = None
-        self.parser_class = None
-        self.root = None
-        self.walker = None
-        self.listener = None
-        self.rules_dict = None
-        self.simple_parse_tree = None
-        self.parse_trace_tree = None
-        self.tokens = None
-        self.lexer = None
-        self.parser = None
-        self.input_stream = None
-        self.traversal: ParseTraversal = None
-        self.name_without_ext = None
+    """
+    Manages the ANTLR parsing process, stores results, and provides an API
+    for exploring the parse steps and tree, designed for use by a debugging frontend.
 
-        if not os.path.exists(self.grammar_file) or not os.path.isfile(self.grammar_file):
-            raise FileNotFoundError(f"The grammar file {self.grammar_file} does not exist or is not a file.")
-
-        self.grammar = UserGrammar()
-        self.grammar.add_grammar_file(self.grammar_file)
-        self.rules_dict = self.grammar.get_rules()
-
-        basename = os.path.basename(grammar_file_path)  # Extract grammar file name from path
-        print("basename", basename)
-        grammar_folder_path = os.path.dirname(grammar_file_path) # Extract grammar folder path
-        print("grammar_folder_path", grammar_folder_path)
-        self.name_without_ext = os.path.splitext(basename)[0]  # Extracts Grammar name
-        print("name_without_ext", self.name_without_ext)
-
-        try:
-            generate_parser(grammar_folder_path, basename)
-            print("Parser generated successfully.")
-        except subprocess.CalledProcessError:
-            print("Error: Failed to generate parser with ANTLR4.")
-            sys.exit(1)
-
-
-
-        try:
-            modify_generated_parser(grammar_folder_path + "/" + self.name_without_ext + "Parser.py")
-            print("Parser modification completed.")
-        except subprocess.CalledProcessError:
-            print("Error: Failed to modify the generated parser.")
-            sys.exit(1)
-    
-    def parse(self, input_file):
+    Responsibilities:
+    - Locating and processing the grammar (.g4) file.
+    - Generating and modifying ANTLR parser/lexer code.
+    - Loading the generated parser/lexer.
+    - Parsing input text and capturing detailed step-by-step traversal info.
+    - Building a structured parse tree (`ParseTraceTree`) from the traversal.
+    - Providing methods to navigate the parse steps (forward, back, jump).
+    - Offering methods to query current state (step info, tree node info, context).
+    - Exposing grammar details (rule locations) and the token list.
+    """
+    def __init__(self, grammar_file_path: str):
         """
-        Runs the parser on the given input text and set the object with new informations.
+        Initializes the ParseInformation instance.
+
+        Loads the grammar, generates/modifies ANTLR code if necessary.
+
         Args:
-            None
+            grammar_file_path (str): Path to the main .g4 grammar file.
 
-        Returns:
-            None
-        
+        Raises:
+            FileNotFoundError: If the grammar file does not exist.
+            subprocess.CalledProcessError: If ANTLR generation or modification fails.
         """
-        print("======= Input file location =======")
-        print(input_file)
-        
-        self.input_file = input_file
-        # load input string instead of file
+        if not os.path.exists(grammar_file_path) or not os.path.isfile(grammar_file_path):
+             raise FileNotFoundError(f"The grammar file '{grammar_file_path}' does not exist or is not a file.")
+
+        self.grammar_file: str = os.path.abspath(grammar_file_path)
+        self.grammar_folder: str = os.path.dirname(self.grammar_file)
+        self.input_file: Optional[str] = None
+        self.input_text: Optional[str] = None
+        self.lexer_class: Optional[type] = None
+        self.parser_class: Optional[type] = None
+        self.lexer: Optional[Any] = None # Store instance
+        self.parser: Optional[Any] = None # Store instance
+        self.tokens: Optional[CommonTokenStream] = None
+        self.token_data_list: List[Dict] = [] # <<< NEW: Explicit token list
+
+        self.grammar: UserGrammar = UserGrammar()
+        self.grammar.add_grammar_file(self.grammar_file)
+        # self.rules_dict: Dict[str, GrammarRule] = self.grammar.get_rules() # Can get on demand
+
+        self.traversal: Optional[ParseTraversal] = None
+        self.parse_trace_tree: Optional[ParseTraceTree] = None
+        self.explorer: Optional[ParseTreeExplorer] = None
+
+        self.name_without_ext: str = os.path.splitext(os.path.basename(grammar_file_path))[0]
+
+        # --- Generation & Modification ---
+        # (Keep existing generation/modification logic)
         try:
-            with open(os.path.join(self.input_file), "r", encoding="utf-8") as f:
-                input_text = f.read()
-        except FileNotFoundError as e:
-            raise FileNotFoundError(f"The file {self.input_file} does not exist.") from e
-        
-        print("======= Reading input file =======")
-        self.input_text = input_text
-        print("======= Load parser and lexer =======")
-        self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
-        print("======= Parsing input text =======")
-        print("input stream")
+             print(f"Attempting to generate parser for: {self.name_without_ext} in {self.grammar_folder}")
+             generate_parser(self.grammar_folder, os.path.basename(grammar_file_path))
+             print("Parser generation successful (or already up-to-date).")
+        except subprocess.CalledProcessError as e:
+             print(f"Error: Failed to generate parser with ANTLR4. Command: {e.cmd}, Return code: {e.returncode}")
+             print(f"Output:\n{e.output}\nStderr:\n{e.stderr}")
+             sys.exit(1)
+        except FileNotFoundError:
+             print("Error: 'antlr4' command not found. Is ANTLR4 installed and in your PATH?")
+             sys.exit(1)
+
+        parser_file_to_modify = os.path.join(self.grammar_folder, self.name_without_ext + "Parser.py")
+        if os.path.exists(parser_file_to_modify):
+            try:
+                modify_generated_parser(parser_file_to_modify)
+                print("Parser modification completed.")
+            except Exception as e: # Broader catch for file IO etc.
+                print(f"Warning: Failed to modify the generated parser '{parser_file_to_modify}'. Error: {e}")
+                # Decide if this is critical - maybe proceed if parser loads anyway?
+        else:
+             print(f"Warning: Expected parser file '{parser_file_to_modify}' not found after generation.")
+             # This is likely an error state
+
+        # --- Load Classes ---
+        try:
+             self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
+             print("Lexer and Parser classes loaded.")
+        except ImportError as e:
+             print(f"Error loading generated Python modules: {e}")
+             print("Ensure the grammar folder is accessible and Python files were generated correctly.")
+             sys.exit(1)
+        except AttributeError as e:
+            print(f"Error finding Lexer/Parser class in generated modules: {e}")
+            sys.exit(1)
+
+    def parse(self, input_file_path: str):
+        """
+        Parses the content of the given input file.
+
+        - Reads the input file.
+        - Performs lexing and parsing using the loaded ANTLR classes.
+        - Captures the detailed parse traversal.
+        - Builds the final `ParseTraceTree`.
+        - Initializes the `ParseTreeExplorer`.
+
+        Args:
+            input_file_path (str): Path to the input file to parse.
+
+        Raises:
+            FileNotFoundError: If the input file cannot be found or read.
+            Exception: If parsing fails critically.
+        """
+        self.input_file = os.path.abspath(input_file_path)
+        if not os.path.exists(self.input_file):
+            raise FileNotFoundError(f"The input file '{self.input_file}' does not exist.")
+
+        try:
+            with open(self.input_file, "r", encoding="utf-8") as f:
+                self.input_text = f.read()
+        except IOError as e:
+            raise IOError(f"Could not read input file '{self.input_file}': {e}") from e
+
+        if self.input_text is None:
+             raise ValueError("Input text could not be read.")
+        if not self.lexer_class or not self.parser_class:
+             raise RuntimeError("Lexer or Parser class not loaded. Initialize first.")
+
+        print("======= Parsing Input =======")
         self.input_stream = InputStream(self.input_text)
-        print("lexer")
         self.lexer = self.lexer_class(self.input_stream)
-        print("tokens")
         self.tokens = CommonTokenStream(self.lexer)
-        print("parser")
+
+        # --- Create Explicit Token List ---
+        self.token_data_list = []
+        # Reset lexer to get all tokens if needed (CommonTokenStream might consume it)
+        self.lexer.reset()
+        all_raw_tokens = self.lexer.getAllTokens()
+        symbolic_names = getattr(self.lexer, 'symbolicNames', []) # Get symbolic names safely
+
+        for token in all_raw_tokens:
+             token_dict = token_to_dict(token, symbolic_names)
+             if token_dict:
+                 self.token_data_list.append(token_dict)
+        print(f"Created token list with {len(self.token_data_list)} tokens.")
+        # --- End Token List Creation ---
+
+        # Reset token stream position after iterating through lexer
+        self.tokens.fill() # Ensure stream is filled
+        self.tokens.seek(0) # Start parsing from the beginning
+
         self.parser = self.parser_class(self.tokens)
 
+        # Setup custom interpreter and error strategy
         self.parser._interp = LookaheadVisualizer(self.parser)
-        self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
+        # Ensure the custom error handler (via CustomParser) has the parser reference
+        if hasattr(self.parser, '_errHandler') and hasattr(self.parser._errHandler, 'traversal'):
+             self.traversal = self.parser._errHandler.traversal
+             self.traversal.set_parser(self.parser) # Ensure traversal knows the parser
+        else:
+             print("Warning: CustomParser or CustomDefaultErrorStrategy not correctly integrated.")
+             # Fallback or error needed here? For now, we'll assume it's set up.
+             # If CustomParser wasn't used, self.traversal will be None.
+             raise RuntimeError("ParseTraversal could not be obtained from parser's error handler.")
+
+
+        # Configure prediction mode if needed (LL_EXACT_AMBIG_DETECTION is expensive)
+        self.parser._interp.predictionMode = PredictionMode.LL # Faster, less ambiguity info
+        # self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
+
+        # Remove default error listeners if custom handling is sufficient
         self.parser.removeErrorListeners()
-        self.walker = ParseTreeWalker()
-        self.listener = DetailedParseListener(self.parser)
+        # Optionally add back a simple console listener if needed for basic errors
+        # self.parser.addErrorListener(ConsoleErrorListener.INSTANCE)
 
-        self.start_rule = get_start_rule(self.grammar_file)
-        print("start rule", self.start_rule)
-        parse_method = getattr(self.parser, self.start_rule)
-        tree = parse_method()
-        self.simple_parse_tree = Trees.toStringTree(tree, None, self.parser)
-        print("Final Parse Tree")
-        print(self.simple_parse_tree)
+        # Determine start rule and parse
+        start_rule_name = get_start_rule(self.grammar_file)
+        if not start_rule_name:
+            raise RuntimeError("Could not determine the start rule from the grammar file.")
+        if not hasattr(self.parser, start_rule_name):
+            raise RuntimeError(f"Parser class does not have the start rule method '{start_rule_name}'.")
 
-        self.traversal = self.parser._errHandler.traversal
-        merged_groups = self.traversal.group_and_merge()
-        self.traversal.replace_merged_nodes(merged_groups)
-        self.traversal._fix_node_ids()
+        print(f"Starting parse with rule: {start_rule_name}")
+        parse_method = getattr(self.parser, start_rule_name)
+        tree = parse_method() # <<<<< THIS IS WHERE THE PARSING HAPPENS
 
+        print("======= Parsing Complete =======")
+
+        # Post-process traversal (merging, fixing IDs)
+        if self.traversal:
+            merged_groups = self.traversal.group_and_merge()
+            self.traversal.replace_merged_nodes(merged_groups)
+            self.traversal._fix_node_ids() # Renumber IDs sequentially
+        else:
+            print("Warning: No traversal data captured.")
+            # Handle case where traversal is None
+
+        # Build the ParseTraceTree from the processed traversal
         self.parse_trace_tree = ParseTraceTree()
-        self.parse_trace_tree.build_from_traversal(self.traversal)
+        if self.traversal:
+            self.parse_trace_tree.build_from_traversal(self.traversal)
+        else:
+             # Create an empty tree or handle error
+             pass
 
-        self.explorer = ParseTreeExplorer(full_tree=self.parse_trace_tree, traversal=self.traversal)
+        # Initialize the explorer
+        if self.parse_trace_tree and self.traversal:
+            self.explorer = ParseTreeExplorer(full_tree=self.parse_trace_tree, traversal=self.traversal)
+        else:
+             raise RuntimeError("Failed to initialize ParseTreeExplorer due to missing tree or traversal.")
 
-    def step_forward(self, step: int) -> None:
-        self.explorer.step_forward(num_steps=step)
+        print("ParseInformation setup complete.")
 
-    def step_backwards(self, step: int) -> None:
-        self.explorer.go_back_one_step()
 
-    def go_to_step(self, step: int) -> None:
-        self.explorer.reset_to_step_id(step)
+    # --- API Methods for Frontend ---
+
+    def get_input_text(self) -> Optional[str]:
+        """Returns the full input text that was parsed."""
+        return self.input_text
+
+    def get_token_list(self) -> List[Dict]:
+        """
+        Returns a list of all tokens generated by the lexer.
+        Each token is represented as a dictionary with keys like:
+        'text', 'type_name', 'type_id', 'line', 'column',
+        'start_index', 'stop_index', 'token_index'.
+        """
+        return self.token_data_list
+
+    def get_grammar_rule_info(self, rule_name: str) -> Optional[Dict]:
+        """
+        Provides information about a specific grammar rule definition.
+
+        Args:
+            rule_name (str): The name of the grammar rule.
+
+        Returns:
+            Optional[Dict]: A dictionary containing 'name', 'content', 'file_path',
+                           'start_line', 'end_line', 'start_pos', 'end_pos'
+                           if the rule is found, otherwise None.
+        """
+        rule: Optional[GrammarRule] = self.grammar.get_rule_by_name(rule_name)
+        if not rule:
+            return None
+
+        # Find which file this rule belongs to (needed for file_path)
+        rule_file_path = None
+        for path, grammar_file_obj in self.grammar.grammar_files.items():
+            if rule_name in grammar_file_obj.rules:
+                rule_file_path = path
+                break
+
+        return {
+            "name": rule.name,
+            "content": rule.content,
+            "file_path": rule_file_path,
+            "start_line": rule.start_line,
+            "end_line": rule.end_line,
+            "start_pos": rule.start_pos,
+            "end_pos": rule.end_pos
+        }
+
+    def get_current_parse_step_info(self) -> Optional[Dict]:
+        """
+        Returns detailed information about the currently active parse step (`ParseStep`).
+
+        Includes basic step data, token index, rule stack, and grammar rule location.
+
+        Returns:
+            Optional[Dict]: A dictionary with comprehensive step details, or None if
+                           no explorer or current step is available.
+        """
+        if not self.explorer:
+            return None
+
+        current_step: Optional[ParseStep] = self.explorer.current_step
+        if not current_step:
+            return None
+
+        # Get base step data
+        step_data = current_step.to_dict(include_transitions=True) # Include transitions here
+
+        # Add grammar rule location if rule_name exists
+        if current_step.rule_name:
+            step_data["grammar_rule_location"] = self.get_grammar_rule_info(current_step.rule_name)
+        else:
+            step_data["grammar_rule_location"] = None
+
+        # Add input text snippet (Context Window)
+        step_data["input_context_snippet"] = self._get_input_context_snippet(current_step.token_index)
+
+        return step_data
+
+    def _get_input_context_snippet(self, token_index: Optional[int], window_size: int = 40) -> Optional[str]:
+        """
+        Generates a snippet of the input text centered around the token at token_index.
+
+        Args:
+            token_index (Optional[int]): The index of the token in `self.token_data_list`.
+            window_size (int): The approximate number of characters desired around the token.
+
+        Returns:
+            Optional[str]: The text snippet with the token highlighted, or None.
+        """
+        if token_index is None or not self.input_text or not self.token_data_list or token_index >= len(self.token_data_list):
+             return None
+
+        token_info = self.token_data_list[token_index]
+        start_char = token_info['start_index']
+        stop_char = token_info['stop_index']
+
+        # Calculate window boundaries
+        half_window = window_size // 2
+        snippet_start = max(0, start_char - half_window)
+        snippet_end = min(len(self.input_text), stop_char + 1 + half_window) # +1 because stop is inclusive
+
+        # Adjust if window goes out of bounds
+        if snippet_start == 0:
+            snippet_end = min(len(self.input_text), window_size)
+        if snippet_end == len(self.input_text):
+            snippet_start = max(0, len(self.input_text) - window_size)
+
+        # Extract snippet and add markers
+        prefix = self.input_text[snippet_start:start_char]
+        token_text = self.input_text[start_char : stop_char + 1]
+        suffix = self.input_text[stop_char + 1 : snippet_end]
+
+        # Indicate truncation
+        prefix_marker = "..." if snippet_start > 0 else ""
+        suffix_marker = "..." if snippet_end < len(self.input_text) else ""
+
+        return f"{prefix_marker}{prefix}[{token_text}]{suffix}{suffix_marker}"
+
+
+    def get_current_parse_tree_node_info(self) -> Optional[Dict]:
+        """
+        Returns information about the ParseTreeNode that contains the current step_id.
+
+        Returns:
+            Optional[Dict]: Dictionary with 'id', 'node_type', 'rule_name', 'token',
+                           or None if not found.
+        """
+        if not self.explorer or not self.explorer.working_tree or not self.explorer.working_tree.root:
+            return None
+
+        # Use the explorer's helper or reimplement search here
+        pt_node: Optional[ParseTreeNode] = self.explorer._find_ptnode_in_working(self.explorer.current_step_id)
+
+        if not pt_node:
+             # Maybe the current step is an alt step not yet fully integrated?
+             # Or we are at step 0 before the root node is formed?
+             # Let's return None for now.
+             return None
+
+        return {
+            "id": pt_node.id,
+            "node_type": "token" if pt_node.token else "rule",
+            "rule_name": pt_node.rule_name,
+            "token": pt_node.token,
+            # You could add more info here if needed, like child count
+        }
+
+
+    # --- Navigation Methods (with improved docstrings) ---
+
+    def step_forward(self, steps: int = 1) -> None:
+        """
+        Moves the current parse step forward by the specified number of steps.
+        Updates the internal state and the explorable `working_tree`.
+
+        Args:
+            steps (int): Number of steps to move forward (default: 1).
+
+        Raises:
+            RuntimeError: If stepping beyond the end of the parse or other issues occur.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.step_forward(num_steps=steps)
+
+    def step_backwards(self, steps: int = 1) -> None:
+        """
+        Moves the current parse step backward by the specified number of steps.
+        Currently only supports stepping back one step at a time.
+        Updates the internal state and the explorable `working_tree`.
+
+        Args:
+            steps (int): Number of steps to move backward (must be 1).
+
+        Raises:
+            RuntimeError: If already at the beginning or other issues occur.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        if steps != 1: raise ValueError("Currently only stepping back 1 step is supported.")
+        self.explorer.go_back_one_step() # Renamed internally for consistency
+
+    def go_to_step(self, step_id: int) -> None:
+        """
+        Resets the explorer to a specific step ID.
+        Updates the internal state and the explorable `working_tree`.
+
+        Args:
+            step_id (int): The target step ID to jump to.
+
+        Raises:
+            RuntimeError: If the step ID is invalid or out of bounds.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.reset_to_step_id(step_id)
 
     def step_until_next_decision(self) -> None:
-        return self.explorer.step_until_next_decision()
-    
-    def step_back_until_last_decision(self) -> None:
-        return self.explorer.step_back_until_previous_decision()
-    
-    def explore_alternatives(self) -> int:
+        """
+        Advances the current step forward until a decision point (a step with
+        multiple possible transitions) is reached, or the end of the parse.
+
+        Raises:
+            RuntimeError: If stepping fails.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.step_until_next_decision()
+
+    def step_back_until_previous_decision(self) -> None: # Renamed for consistency
+        """
+        Moves the current step backward until a decision point (a step with
+        multiple possible transitions) is reached, or the beginning of the parse.
+
+        Raises:
+            RuntimeError: If stepping back fails.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.step_back_until_previous_decision()
+
+    def expand_alternatives(self) -> int:
+        """
+        If the current step is a decision point, this method prepares the
+        alternative parse paths for exploration. It modifies the `working_tree`
+        to show these alternatives temporarily.
+
+        Call `choose_alternative` or `cancel_alt_expansion` afterwards.
+
+        Returns:
+            int: The number of available alternative paths (including the original one if applicable).
+
+        Raises:
+            RuntimeError: If the current step is not a decision point or expansion fails.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        # The explorer's expand_alternatives now returns void, but we can get count
         self.explorer.expand_alternatives()
         return len(self.explorer._expanded_alt_nodes)
 
+
     def choose_alternative(self, alt_index: int) -> None:
-        return self.explorer.choose_alternative(alt_index)
+        """
+        Selects one of the alternatives previously expanded by `expand_alternatives`.
+        The `working_tree` is updated to follow this chosen path, and other
+        alternatives are pruned. The current step may advance.
 
-    def get_json(self) -> str:
-        return self.explorer.to_json()
-    
-    def get_dict(self) -> dict:
-        return self.explorer.to_dict()
-    
-    def get_current_step(self) -> dict:
-        return self.explorer.current_step.to_dict()
-    
+        Args:
+            alt_index (int): The 1-based index of the alternative to choose.
 
+        Raises:
+            RuntimeError: If not in alternative expansion mode or the index is invalid.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.choose_alternative(alt_index)
+
+    def cancel_alt_expansion(self) -> None:
+        """
+        Cancels the alternative expansion mode initiated by `expand_alternatives`.
+        Removes the temporary alternative branches from the `working_tree`.
+        """
+        if not self.explorer: raise RuntimeError("Explorer not initialized.")
+        self.explorer.cancel_alt_expansion()
+
+    # --- Output Methods ---
+
+    def get_current_tree_json(self, verbose: bool = False) -> str:
+        """
+        Returns the current state of the explorable parse tree (`working_tree`)
+        as a JSON string.
+
+        Args:
+            verbose (bool): If True, includes detailed trace step info within each node.
+
+        Returns:
+            str: JSON representation of the working tree. Returns "{}" if no tree exists.
+        """
+        if not self.explorer: return "{}"
+        return self.explorer.to_json(verbose=verbose)
+
+    def get_current_tree_dict(self, verbose: bool = False) -> dict:
+        """
+        Returns the current state of the explorable parse tree (`working_tree`)
+        as a Python dictionary.
+
+        Args:
+            verbose (bool): If True, includes detailed trace step info within each node.
+
+        Returns:
+            dict: Dictionary representation of the working tree. Returns {} if no tree exists.
+        """
+        if not self.explorer: return {}
+        return self.explorer.to_dict(verbose=verbose)
+
+    # --- Deprecated/Internal Access (Avoid if possible) ---
+    # get_json -> use get_current_tree_json
+    # get_dict -> use get_current_tree_dict
+    # get_current_step -> use get_current_parse_step_info

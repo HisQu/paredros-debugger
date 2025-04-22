@@ -10,10 +10,10 @@ The node can represent different types of parsing events:
 
 Each node maintains:
 - Its current ATN state and parser context
-- Currently available parsing transitions
-- Chosen transition
+- Available parsing alternatives
+- Chosen alternative
 - Links to previous/next nodes
-- Transition paths that could have been taken
+- Alternative paths that could have been taken
 
 The node structure forms a directed graph where:
 - next_node points to the sequential parsing path
@@ -30,7 +30,7 @@ Example node types:
 
 from pprint import pprint
 import json
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional
 
 from antlr4.atn.Transition import Transition, AtomTransition, SetTransition
 from antlr4.atn.ATNState import ATNState
@@ -41,7 +41,9 @@ from antlr4.Parser import Parser
 class ParseStep:
     def __init__(self, 
                  atn_state: Any, 
-                 current_token: Any, 
+                 current_token_repr: str, 
+                 token_index: Optional[int],
+                 rule_stack: List[str],
                  lookahead: List[Any], 
                  possible_transitions: List[Tuple[int, List[str]]], 
                  input_text: str, 
@@ -54,16 +56,16 @@ class ParseStep:
 
         Args:
             atn_state: ATN state number or object
-            current_token: Current token being processed
+            current_token_repr: String representation of the current token being processed
+            token_index: Index of the current token in the full token list, or None.
+            rule_stack: List of rule names representing the current parser rule stack.
             lookahead: List of upcoming tokens
-            possible_transitions: Available parsing paths to traverse into as (state, tokens) pairs
+            possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
             input_text: Current input context with cursor position
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
+            token_stream: The token stream being processed (or a copy).
             previous_id: ID of previous node for sequential numbering (-1 for root)
-            is_error_node: Flag indicating if this node is an error state
-            has_error: Flag indicating that the current token does not match what the grammar expects
-            token_stream: The token stream being processed
         """
 
         # Node information
@@ -78,13 +80,15 @@ class ParseStep:
 
         # Rule and grammar context
         self.rule_name = rule
+        self.rule_stack = rule_stack
         self.state = atn_state
 
         # Token and input information
-        self.current_token = current_token
+        self.current_token_repr = current_token_repr
+        self.token_index = token_index
         self.token_stream = token_stream
-        self.input_text = input_text
-        self.lookahead = lookahead
+        self.input_text_context = input_text
+        self.lookahead_repr = lookahead
         self.next_input_token = None
         self.next_input_literal = None
 
@@ -139,14 +143,14 @@ class ParseStep:
 
     def matches_rule_entry(self, ruleName: str) -> bool:
         """
-        Check if this node's transitions include entering the specified rule.
+        Check if this node's alternatives include entering the specified rule.
         Used by error handler to track rule entry decisions.
 
         Args:
             ruleName (str): Name of the rule to check for
 
         Returns:
-            bool: True if one of the transitions enters this rule
+            bool: True if one of the alternatives enters this rule
         """
         for alt_state, tokens in self.possible_transitions:
             if any(t.startswith('Rule') and ruleName in t for t in tokens):
@@ -155,7 +159,7 @@ class ParseStep:
     
     def matches_token(self, token_str: str) -> bool:
         """
-        Check if this node's transition include matching the given token.
+        Check if this node's alternatives include matching the given token.
         Used by error handler to track token consumption decisions.
         Handles both literal tokens ('a', '(') and typed tokens (INT, ID).
 
@@ -163,7 +167,7 @@ class ParseStep:
             token_str (str): Token to match against
 
         Returns:
-            bool: True if one of the transition matches this token
+            bool: True if one of the alternatives matches this token
         """
         # Handle literals
         if token_str.startswith("Literal"):
@@ -183,16 +187,16 @@ class ParseStep:
                     return True
         return False
 
-    def get_matching_transitions(self, token_str: str) -> int:
+    def get_matching_alternative(self, token_str: str) -> int:
         """
-        Find which transition matches the given token and return its index.
+        Find which alternative matches the given token and return its index.
         Used by error handler to determine which path was taken when consuming a token.
 
         Args:
             token_str (str): Token to match against
 
         Returns:
-            int: 1-based index of matching transition, or -1 if no match found
+            int: 1-based index of matching alternative, or -1 if no match found
         """
         # Handle literals
         if token_str.startswith("Literal"):
@@ -226,11 +230,11 @@ class ParseStep:
         else:
             atn_state = self.state
 
-        if not self.current_token:
+        if not self.current_token_repr:
             return False
 
         # Split token string into type and value
-        token_str = str(self.current_token)
+        token_str = str(self.current_token_repr)
         token_type = token_str.split(" ")[0]  # e.g. "WORD" from "WORD ('Henricus')"
 
         if not atn_state.transitions:
@@ -277,22 +281,48 @@ class ParseStep:
             
         return no_match
     
-    def to_dict(self):
+    def to_dict(self, include_transitions: bool = True) -> dict:
         """
-        Convert the node to a dictionary representation.
-        
+        Convert the node to a dictionary representation, suitable for JSON serialization.
+
+        Args:
+            include_transitions (bool): Whether to include the detailed possible_transitions list. Defaults to True.
+
         Returns:
             dict: Dictionary representation of the node
         """
-        return {
+        data = {
             "step_id": str(self.id),
             "node_type": self.node_type,
+            "rule_name": self.rule_name,
+            "rule_stack": self.rule_stack,
             "state": str(self.state),
-            "current_token": str(self.current_token),
-            "chosen": self.chosen_transition_index,
-            "input_text": self.input_text,
+            "current_token_repr": self.current_token_repr,
+            "token_index": self.token_index,
+            "chosen_transition_index": self.chosen_transition_index,
+            "input_text_context": self.input_text_context,
+            "lookahead_repr": self.lookahead_repr,
             "matching_error": self.matching_error,
-            "possible_transitions": str(self.possible_transitions),
+            "is_error_node": self.is_error_node,
             "next_input_token": self.next_input_token,
             "next_input_literal": self.next_input_literal,
         }
+        if include_transitions:
+             # Convert transitions to strings for simpler JSON
+            data["possible_transitions"] = [
+                {"target_state": t[0], "matches": t[1]} for t in self.possible_transitions
+            ]
+        else:
+            data["possible_transitions_count"] = len(self.possible_transitions)
+
+        return data
+
+    def get_step_as_json(self):
+        """Returns the object's attributes as a JSON string."""
+        return json.dumps(self.to_dict(), indent=4, ensure_ascii=False)
+
+    def get_next_step_as_json(self):
+        """Returns the next node's attributes as a dictionary."""
+        if self.next_node:
+            return json.dumps(self.next_node.to_dict(), indent=4, ensure_ascii=False)
+        return json.dumps({})

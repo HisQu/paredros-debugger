@@ -8,7 +8,8 @@ import os
 import subprocess
 import sys
 from paredros_debugger.ModifyGrammarParserFile import modify_parser_file
-from antlr4 import CommonTokenStream
+from antlr4 import CommonTokenStream, Token 
+from typing import Optional
 
 def find_grammar_file(folder_path):
     """
@@ -103,6 +104,42 @@ def get_start_rule(grammar_file):
     except FileNotFoundError:
         return ''
 
+
+def token_to_dict(token: Token, symbolic_names: list[str]) -> Optional[dict]:
+    """
+    Converts an ANTLR Token object into a serializable dictionary.
+
+    Args:
+        token (Token): The ANTLR Token object.
+        symbolic_names (List[str]): The list of symbolic names from the Lexer/Parser.
+
+    Returns:
+        Optional[dict]: A dictionary with token info, or None if token is invalid.
+    """
+    if not isinstance(token, Token):
+        return None
+
+    token_type_name = "EOF" # Default for EOF
+    if token.type > 0 and token.type < len(symbolic_names):
+        token_type_name = symbolic_names[token.type]
+    elif token.type == Token.EOF:
+         pass
+    else:
+         token_type_name = "<INVALID>"
+
+    # Use -1 or specific value if index is invalid
+    token_index = token.tokenIndex if token.tokenIndex >= 0 else -1
+
+    return {
+        "text": token.text,
+        "type_name": token_type_name,
+        "type_id": token.type,
+        "line": token.line,
+        "column": token.column,
+        "start_index": token.start, # Start char index in input stream
+        "stop_index": token.stop,   # Stop char index in input stream
+        "token_index": token_index  # Index in the token stream list
+    }
 
 
 def copy_token_stream(original_stream: CommonTokenStream) -> CommonTokenStream:
