@@ -711,6 +711,24 @@ class ParseTraversal:
             self.root.previous_node = None
 
 
+    def _remove_startrule_entry(self):
+        """
+        Removes the first node in the traversal, which is the start rule entry node.
+        """
+        if self.all_steps:
+            # Update current node, if it was the previous root to the new root
+            if self.current_node == self.root:
+                self.current_node = None
+            
+            self.all_steps.pop(0)
+
+            # Update root to the next node
+            self.root = self.all_steps[0]
+            self.root.previous_node = None
+            if self.current_node == None:
+                self.current_node = self.root
+
+
     def _fix_node_ids(self):
         """
         Reassigns sequential IDs to all nodes in the traversal after structural changes.

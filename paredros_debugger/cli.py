@@ -224,7 +224,7 @@ def interactive_explorer_repl(
                     alt_idx = int(alt_str)
                     explorer.choose_alternative(alt_idx)
                 except ValueError:
-                    print("Invalid integer. Cancelling alt expansion.")
+                    print("Invalid integer  . Cancelling alt expansion.")
                     explorer.cancel_alt_expansion()
                 except RuntimeError as e:
                     print(f"Error picking alt: {e}")
