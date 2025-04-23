@@ -33,7 +33,6 @@ class ParseInformation:
 
     Responsibilities:
     - Locating and processing the grammar (.g4) file.
-    - Generating and modifying ANTLR parser/lexer code.
     - Loading the generated parser/lexer.
     - Parsing input text and capturing detailed step-by-step traversal info.
     - Building a structured parse tree (`ParseTraceTree`) from the traversal.
@@ -49,10 +48,6 @@ class ParseInformation:
 
         Args:
             grammar_file_path (str): Path to the main .g4 grammar file.
-
-        Raises:
-            FileNotFoundError: If the grammar file does not exist.
-            subprocess.CalledProcessError: If ANTLR generation or modification fails.
         """
         if not os.path.exists(grammar_file_path) or not os.path.isfile(grammar_file_path):
              raise FileNotFoundError(f"The grammar file '{grammar_file_path}' does not exist or is not a file.")
@@ -78,6 +73,14 @@ class ParseInformation:
 
         self.name_without_ext: str = os.path.splitext(os.path.basename(grammar_file_path))[0]
 
+    def generate_parser(self): 
+        """
+        Responsibilities:
+            - Generating and modifying ANTLR parser/lexer code.
+        Raises:
+            FileNotFoundError: If the grammar file does not exist.
+            subprocess.CalledProcessError: If ANTLR generation or modification fails.
+        """
         # --- Generation & Modification ---
         # (Keep existing generation/modification logic)
         try:
@@ -85,12 +88,14 @@ class ParseInformation:
              generate_parser(self.grammar_folder, os.path.basename(grammar_file_path))
              print("Parser generation successful (or already up-to-date).")
         except subprocess.CalledProcessError as e:
-             print(f"Error: Failed to generate parser with ANTLR4. Command: {e.cmd}, Return code: {e.returncode}")
-             print(f"Output:\n{e.output}\nStderr:\n{e.stderr}")
-             sys.exit(1)
+             ln1=f"Error: Failed to generate parser with ANTLR4. Command: {e.cmd}, Return code: {e.returncode}"
+             ln2=f"Output:\n{e.output}\nStderr:\n{e.stderr}"
+             print(ln1)
+             print(ln2)
+             raise Exception(ln1+"\n"+ln2)
         except FileNotFoundError:
-             print("Error: 'antlr4' command not found. Is ANTLR4 installed and in your PATH?")
-             sys.exit(1)
+             ln="Error: 'antlr4' command not found. Is ANTLR4 installed and in your PATH?"
+             raise Exception(ln1)
 
         parser_file_to_modify = os.path.join(self.grammar_folder, self.name_without_ext + "Parser.py")
         if os.path.exists(parser_file_to_modify):
@@ -109,12 +114,13 @@ class ParseInformation:
              self.lexer_class, self.parser_class = load_parser_and_lexer(self.grammar_folder, self.name_without_ext)
              print("Lexer and Parser classes loaded.")
         except ImportError as e:
-             print(f"Error loading generated Python modules: {e}")
-             print("Ensure the grammar folder is accessible and Python files were generated correctly.")
-             sys.exit(1)
+             ln1=f"Error loading generated Python modules: {e}"
+             ln2="Ensure the grammar folder is accessible and Python files were generated correctly."
+             raise Exception(ln1+"\n"+ln2)
         except AttributeError as e:
-            print(f"Error finding Lexer/Parser class in generated modules: {e}")
-            sys.exit(1)
+            ln=f"Error finding Lexer/Parser class in generated modules: {e}"
+            print(ln)
+            raise Exception(ln)
 
     def parse(self, input_file_path: str):
         """
@@ -146,7 +152,7 @@ class ParseInformation:
         if self.input_text is None:
              raise ValueError("Input text could not be read.")
         if not self.lexer_class or not self.parser_class:
-             raise RuntimeError("Lexer or Parser class not loaded. Initialize first.")
+             raise RuntimeError("Lexer or Parser class not loaded. Initialize first using `generate_parser`.")
 
         print("======= Parsing Input =======")
         self.input_stream = InputStream(self.input_text)
