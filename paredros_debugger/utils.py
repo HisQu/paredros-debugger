@@ -136,9 +136,9 @@ def token_to_dict(token: Token, symbolic_names: list[str]) -> Optional[dict]:
         "type_id": token.type,
         "line": token.line,
         "column": token.column,
-        "start_index": token.start, # Start char index in input stream
-        "stop_index": token.stop,   # Stop char index in input stream
-        "token_index": token_index  # Index in the token stream list
+        "start_index": token.start,
+        "stop_index": token.stop,
+        "token_index": token_index
     }
 
 

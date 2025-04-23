@@ -153,9 +153,8 @@ class ParseInformation:
         self.lexer = self.lexer_class(self.input_stream)
         self.tokens = CommonTokenStream(self.lexer)
 
-        # --- Create Explicit Token List ---
+        # Create Explicit Token List
         self.token_data_list = []
-        # Reset lexer to get all tokens if needed (CommonTokenStream might consume it)
         self.lexer.reset()
         all_raw_tokens = self.lexer.getAllTokens()
         symbolic_names = getattr(self.lexer, 'symbolicNames', []) # Get symbolic names safely
@@ -165,11 +164,10 @@ class ParseInformation:
              if token_dict:
                  self.token_data_list.append(token_dict)
         print(f"Created token list with {len(self.token_data_list)} tokens.")
-        # --- End Token List Creation ---
 
         # Reset token stream position after iterating through lexer
-        self.tokens.fill() # Ensure stream is filled
-        self.tokens.seek(0) # Start parsing from the beginning
+        self.tokens.fill()
+        self.tokens.seek(0)
 
         self.parser = self.parser_class(self.tokens)
 
@@ -181,8 +179,6 @@ class ParseInformation:
              self.traversal.set_parser(self.parser) # Ensure traversal knows the parser
         else:
              print("Warning: CustomParser or CustomDefaultErrorStrategy not correctly integrated.")
-             # Fallback or error needed here? For now, we'll assume it's set up.
-             # If CustomParser wasn't used, self.traversal will be None.
              raise RuntimeError("ParseTraversal could not be obtained from parser's error handler.")
 
 
@@ -204,7 +200,7 @@ class ParseInformation:
 
         print(f"Starting parse with rule: {start_rule_name}")
         parse_method = getattr(self.parser, start_rule_name)
-        tree = parse_method() # <<<<< THIS IS WHERE THE PARSING HAPPENS
+        _ = parse_method() # <<<<< THIS IS WHERE THE PARSING HAPPENS
 
         print("======= Parsing Complete =======")
 
@@ -215,7 +211,6 @@ class ParseInformation:
             self.traversal._fix_node_ids() # Renumber IDs sequentially
         else:
             print("Warning: No traversal data captured.")
-            # Handle case where traversal is None
 
         # Build the ParseTraceTree from the processed traversal
         self.parse_trace_tree = ParseTraceTree()
@@ -369,9 +364,6 @@ class ParseInformation:
         pt_node: Optional[ParseTreeNode] = self.explorer._find_ptnode_in_working(self.explorer.current_step_id)
 
         if not pt_node:
-             # Maybe the current step is an alt step not yet fully integrated?
-             # Or we are at step 0 before the root node is formed?
-             # Let's return None for now.
              return None
 
         return {
@@ -379,7 +371,6 @@ class ParseInformation:
             "node_type": "token" if pt_node.token else "rule",
             "rule_name": pt_node.rule_name,
             "token": pt_node.token,
-            # You could add more info here if needed, like child count
         }
 
 

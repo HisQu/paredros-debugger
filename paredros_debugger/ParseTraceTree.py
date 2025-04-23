@@ -42,8 +42,7 @@ class ParseTreeNode:
             "token": self.token,
             "trace_info": trace_info if verbose else "collapsed",
             "children": [child.to_dict(verbose) for child in self.children],
-        }
-    
+        }    
 
 
 class ParseTraceTree:
