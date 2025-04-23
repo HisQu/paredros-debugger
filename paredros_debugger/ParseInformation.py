@@ -373,6 +373,139 @@ class ParseInformation:
             "token": pt_node.token,
         }
 
+    def get_highlighting_info_for_node(self, node_id: str) -> Optional[dict[str, Any]]:
+        """
+        Calculates the token and character range corresponding to a specific
+        ParseTreeNode ID in the current working tree.
+
+        This is useful for highlighting the input text that a rule node represents.
+
+        Args:
+            node_id (str): The unique ID of the ParseTreeNode (e.g., "ptn_5")
+                           for which to get highlighting information.
+
+        Returns:
+            Optional[Dict[str, Any]]: A dictionary containing:
+                - 'start_token_index': Index of the first token in the range.
+                - 'end_token_index': Index of the last token in the range.
+                - 'start_char_index': Character start position in the input text.
+                - 'end_char_index': Character end position (inclusive) in the input text.
+            Returns None if the node is not found, is not a rule node, lacks
+            entry/exit steps, or if indices are invalid.
+        """
+        if not self.explorer or not self.explorer.working_tree or not self.explorer.working_tree.root:
+            warnings.warn("Explorer or working tree not available for highlighting.")
+            return None
+        if not self.token_data_list:
+             warnings.warn("Token list not available for highlighting.")
+             return None
+
+        # 1. Find the ParseTreeNode by its ID in the working tree
+        #    We need access to the node's trace_steps. This might require
+        #    a helper in ParseTreeExplorer or searching the tree dict structure.
+        #    Let's assume we can find the node object or its data.
+        #    (Using explorer's internal method for now, might need refinement)
+        pt_node: Optional[ParseTreeNode] = None
+        queue = [self.explorer.working_tree.root]
+        while queue:
+            cur = queue.pop(0)
+            if cur.id == node_id:
+                pt_node = cur
+                break
+            queue.extend(cur.children)
+
+        if not pt_node:
+            # warnings.warn(f"ParseTreeNode with ID '{node_id}' not found in working tree.")
+            return None # Node not found
+
+        # Ensure it's a rule node, as token nodes represent single tokens
+        if pt_node.token is not None:
+            # For token nodes, highlighting info comes directly from its single token
+            # Find the corresponding token step
+            token_step = next((step for step in pt_node.trace_steps if step.node_type == "Token consume"), None)
+            if token_step and token_step.token_index is not None and token_step.token_index < len(self.token_data_list):
+                 token_info = self.token_data_list[token_step.token_index]
+                 return {
+                     'start_token_index': token_step.token_index,
+                     'end_token_index': token_step.token_index,
+                     'start_char_index': token_info['start_index'],
+                     'end_char_index': token_info['stop_index'],
+                 }
+            else:
+                 warnings.warn(f"Could not find valid token info for token node ID '{node_id}'.")
+                 return None
+
+
+        # 2. Find Rule Entry and Exit steps within the node's trace_steps
+        entry_step: Optional[ParseStep] = None
+        exit_step: Optional[ParseStep] = None
+        # This assumes trace_steps are available. If using non-verbose tree dict,
+        # this info might be missing and require fetching verbose data.
+        if not hasattr(pt_node, 'trace_steps') or not pt_node.trace_steps:
+             warnings.warn(f"Node ID '{node_id}' lacks trace_steps, cannot determine range. Fetch tree with verbose=True?")
+             return None
+
+        for step in pt_node.trace_steps:
+            if step.node_type == "Rule entry":
+                entry_step = step
+            elif step.node_type == "Rule exit":
+                exit_step = step
+            # Optimization: break if both found? Depends if multiple entries/exits are possible per node.
+
+        if not entry_step:
+            # Handle case where entry step might be missing (e.g., start rule?)
+            # For now, return None if entry is missing for a rule node.
+            # Or potentially default start_token_idx to 0 if it's the root? Needs careful thought.
+             warnings.warn(f"Rule entry step not found for node ID '{node_id}'.")
+             return None
+        if not exit_step:
+             warnings.warn(f"Rule exit step not found for node ID '{node_id}'.")
+             return None # Cannot determine end without exit step
+
+        # 3. Extract token indices
+        start_token_idx = entry_step.token_index
+        exit_token_idx = exit_step.token_index # Index *after* the last consumed token
+
+        if start_token_idx is None:
+            warnings.warn(f"Rule entry step for node ID '{node_id}' has no token index.")
+            return None
+        if exit_token_idx is None:
+             warnings.warn(f"Rule exit step for node ID '{node_id}' has no token index.")
+             return None
+
+        # 4. Calculate end token index
+        end_token_idx = exit_token_idx - 1
+
+        # 5. Validate indices
+        if end_token_idx < start_token_idx:
+            # This can happen for empty rules or potentially errors
+            # warnings.warn(f"Calculated end token index ({end_token_idx}) is before start ({start_token_idx}) for node ID '{node_id}'.")
+            # Return range covering just the start token? Or None? Let's return None for now.
+            return None
+        if start_token_idx >= len(self.token_data_list) or end_token_idx >= len(self.token_data_list):
+             warnings.warn(f"Token indices ({start_token_idx}, {end_token_idx}) out of bounds for token list (len={len(self.token_data_list)}) for node ID '{node_id}'.")
+             return None
+
+        # 6. Get character range from token list
+        try:
+            start_char_idx = self.token_data_list[start_token_idx]['start_index']
+            end_char_idx = self.token_data_list[end_token_idx]['stop_index']
+        except IndexError:
+             warnings.warn(f"IndexError accessing token_data_list for indices ({start_token_idx}, {end_token_idx}) for node ID '{node_id}'.")
+             return None
+        except KeyError:
+             warnings.warn(f"KeyError accessing 'start_index' or 'stop_index' in token_data_list for node ID '{node_id}'.")
+             return None
+
+
+        # 7. Return results
+        return {
+            'start_token_index': start_token_idx,
+            'end_token_index': end_token_idx,
+            'start_char_index': start_char_idx,
+            'end_char_index': end_char_idx,
+            'node_id': node_id # Include original node ID for reference
+        }
 
     # --- Navigation Methods (with improved docstrings) ---
 
