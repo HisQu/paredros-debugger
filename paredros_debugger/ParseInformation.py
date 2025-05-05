@@ -95,7 +95,8 @@ class ParseInformation:
              raise Exception(ln1+"\n"+ln2)
         except FileNotFoundError:
              ln="Error: 'antlr4' command not found. Is ANTLR4 installed and in your PATH?"
-             raise Exception(ln1)
+             print(ln)
+             raise Exception(ln)
 
         parser_file_to_modify = os.path.join(self.grammar_folder, self.name_without_ext + "Parser.py")
         if os.path.exists(parser_file_to_modify):

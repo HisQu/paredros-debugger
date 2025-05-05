@@ -8,7 +8,8 @@ import os
 import subprocess
 import sys
 from paredros_debugger.ModifyGrammarParserFile import modify_parser_file
-from antlr4 import CommonTokenStream, Token 
+from antlr4 import CommonTokenStream, Token
+from antlr4_tool_runner import initialize_paths, install_jre_and_antlr, latest_version
 from typing import Optional
 
 def find_grammar_file(folder_path):
@@ -37,8 +38,10 @@ def generate_parser(folder_path, grammar_file):
     Returns:
         None
     """
-    command = ["antlr4", "-Dlanguage=Python3", grammar_file]
-    subprocess.run(command, cwd=folder_path, check=True)
+    initialize_paths()
+    version = os.environ.get("ANTLR4_TOOLS_ANTLR_VERSION") or latest_version()
+    jar, java = install_jre_and_antlr(version)
+    subprocess.run([java, '-cp', jar, 'org.antlr.v4.Tool'] + ["-Dlanguage=Python3 " + grammar_file], cwd=folder_path, check=True)
 
 def modify_generated_parser(folder_path):
     """
