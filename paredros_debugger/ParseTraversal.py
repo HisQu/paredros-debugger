@@ -395,7 +395,7 @@ class ParseTraversal:
             node.chosen_transition_index = 1
 
         elif node_type == "Error":
-            self._process_error_node(node, recognizer)
+            self._process_error_node(node)
 
         elif node_type == "Sync":
             self._process_sync_node(node, rule_name)

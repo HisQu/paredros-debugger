@@ -85,7 +85,7 @@ class ParseInformation:
         # (Keep existing generation/modification logic)
         try:
              print(f"Attempting to generate parser for: {self.name_without_ext} in {self.grammar_folder}")
-             generate_parser(self.grammar_folder, os.path.basename(grammar_file_path))
+             generate_parser(self.grammar_folder, self.grammar_file)
              print("Parser generation successful (or already up-to-date).")
         except subprocess.CalledProcessError as e:
              ln1=f"Error: Failed to generate parser with ANTLR4. Command: {e.cmd}, Return code: {e.returncode}"
