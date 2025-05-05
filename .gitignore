@@ -9,6 +9,7 @@ MyGrammarParser.py
 visualisation/
 .antlr/
 __pycache__/
+.idea
 MyGrammar.g4
 output.txt
 .venv/*
