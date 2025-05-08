@@ -41,7 +41,7 @@ def generate_parser(folder_path, grammar_file):
     initialize_paths()
     version = os.environ.get("ANTLR4_TOOLS_ANTLR_VERSION") or latest_version()
     jar, java = install_jre_and_antlr(version)
-    subprocess.run([java, '-cp', jar, 'org.antlr.v4.Tool'] + ["-Dlanguage=Python3 " + grammar_file], cwd=folder_path, check=True)
+    subprocess.run([java, '-cp', jar, 'org.antlr.v4.Tool', '-Dlanguage=Python3', grammar_file], cwd=folder_path, check=True)
 
 def modify_generated_parser(folder_path):
     """
