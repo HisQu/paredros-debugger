@@ -208,7 +208,6 @@ class ParseTraversal:
             - Root node is set to first created node
         """
     
-
         # Create node if no duplicate found
         new_node = ParseStep(state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream)
         self.all_steps.append(new_node)
