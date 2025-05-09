@@ -335,11 +335,18 @@ class ParseTraversal:
         """
         # Rule related information
         ctx = recognizer._ctx
-        rule_index = ctx.getRuleIndex() if ctx else -1
-        rule_name = recognizer.ruleNames[rule_index] if rule_index >= 0 else "unknown"
         state_num = recognizer.state # Current ATN state number
         state = recognizer._interp.atn.states[state_num]
-        
+        rule_name = "unknown"
+
+        if node_type == "Rule entry" or node_type == "Rule exit":
+            rule_name = recognizer.ruleNames[state.ruleIndex]
+        elif ctx is not None and ctx.getRuleIndex() >= 0:
+            rule_idx_from_ctx = ctx.getRuleIndex()
+            rule_name = recognizer.ruleNames[rule_idx_from_ctx]
+        else:
+            rule_name = recognizer.ruleNames[state.ruleIndex]
+                
         # Capture Rule Stack
         rule_stack = []
         temp_ctx = ctx
