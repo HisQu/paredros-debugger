@@ -92,7 +92,7 @@ class ParseTraversal:
                 # Convert label to its symbolicName
                 symbolic = recognizer.symbolicNames[label] if label < len(recognizer.symbolicNames) else None
                 if symbolic:
-                    results.append((next_state, symbolic))
+                    results.append((next_state, [symbolic]))
                 continue
 
             # -- SetTransition => multiple tokens
@@ -532,7 +532,7 @@ class ParseTraversal:
         if self.current_node and self.current_node.possible_transitions:
             if self.current_node.matches_token(token_str):
                 # We matched a token - mark it as chosen path
-                self.current_node.chosen_transition_index = self.current_node.get_matching_transitions(token_str)
+                self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(token_str)
 
     def _process_rule_entry_node(self, node:ParseStep, rule_name, transitions):
         """Sets the rulenode specific properties and updates the previous node"""
@@ -680,7 +680,9 @@ class ParseTraversal:
             # Create merged node
             merged_node = ParseStep(
                 atn_state=group[0].state, 
-                current_token_repr=group[-1].current_token_repr,  
+                current_token_repr=group[-1].current_token_repr,
+                token_index=group[-1].token_index,
+                rule_stack=group[0].rule_stack,
                 lookahead=group[-1].lookahead_repr,  
                 possible_transitions=all_alternatives,  
                 input_text=group[-1].input_text_context,  

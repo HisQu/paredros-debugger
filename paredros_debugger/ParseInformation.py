@@ -173,8 +173,9 @@ class ParseInformation:
         print(f"Created token list with {len(self.token_data_list)} tokens.")
 
         # Reset token stream position after iterating through lexer
-        self.tokens.fill()
-        self.tokens.seek(0)
+        self.input_stream = InputStream(self.input_text)
+        self.lexer = self.lexer_class(self.input_stream)
+        self.tokens = CommonTokenStream(self.lexer) 
 
         self.parser = self.parser_class(self.tokens)
 
@@ -190,13 +191,13 @@ class ParseInformation:
 
 
         # Configure prediction mode if needed (LL_EXACT_AMBIG_DETECTION is expensive)
-        self.parser._interp.predictionMode = PredictionMode.LL # Faster, less ambiguity info
-        # self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
+        # self.parser._interp.predictionMode = PredictionMode.LL # Faster, less ambiguity info
+        self.parser._interp.predictionMode = PredictionMode.LL_EXACT_AMBIG_DETECTION
 
         # Remove default error listeners if custom handling is sufficient
         self.parser.removeErrorListeners()
-        # Optionally add back a simple console listener if needed for basic errors
-        # self.parser.addErrorListener(ConsoleErrorListener.INSTANCE)
+        self.walker = ParseTreeWalker()
+        self.listener = DetailedParseListener(self.parser)
 
         # Determine start rule and parse
         start_rule_name = get_start_rule(self.grammar_file)
