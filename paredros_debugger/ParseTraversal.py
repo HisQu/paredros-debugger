@@ -323,7 +323,9 @@ class ParseTraversal:
         return alt_node
     
 
-    def create_node(self, recognizer: Parser, node_type, chosen_index=-1):
+    def create_node(self, recognizer: Parser, node_type: str, chosen_index: int = -1,
+                event_rule_index: Optional[int] = None, 
+                event_atn_state_number: Optional[int] = None):
         """
         Centralized method to create a decision node based on the current parser state.
         
@@ -333,19 +335,60 @@ class ParseTraversal:
             chosen_index (int): Optional pre-determined chosen transition index
         
         """
-        # Rule related information
+         # Rule related information
         ctx = recognizer._ctx
-        state_num = recognizer.state # Current ATN state number
-        state = recognizer._interp.atn.states[state_num]
-        rule_name = "unknown"
+    
+        # 'state' will be the ATNState object for the step.
+        # 'rule_name' will be the rule name for the step.
+        # Your variables:
+        state: ATNState 
+        rule_name: str = "unknown"
+        # state_num will be derived from the 'state' object after 'state' is set.
 
-        if node_type == "Rule entry" or node_type == "Rule exit":
-            rule_name = recognizer.ruleNames[state.ruleIndex]
-        elif ctx is not None and ctx.getRuleIndex() >= 0:
-            rule_idx_from_ctx = ctx.getRuleIndex()
-            rule_name = recognizer.ruleNames[rule_idx_from_ctx]
+        if node_type == "Rule entry" and event_rule_index is not None and event_atn_state_number is not None:
+            # For "Rule entry", use the precise information passed from CustomParser
+            if event_rule_index >= 0 and event_rule_index < len(recognizer.ruleNames):
+                rule_name = recognizer.ruleNames[event_rule_index]
+            # Ensure event_atn_state_number is a valid index
+            if event_atn_state_number >= 0 and event_atn_state_number < len(recognizer._interp.atn.states):
+                state = recognizer._interp.atn.states[event_atn_state_number]
+            else:
+                # Fallback if somehow event_atn_state_number is invalid (should not happen if from ruleToStartState)
+                _fallback_state_num = recognizer.state if recognizer.state >=0 else 0
+                state = recognizer._interp.atn.states[_fallback_state_num]
+                # If rule_name wasn't set from event_rule_index, try from this fallback state
+                if rule_name == "unknown" and state.ruleIndex >= 0 and state.ruleIndex < len(recognizer.ruleNames):
+                    rule_name = recognizer.ruleNames[state.ruleIndex]
         else:
-            rule_name = recognizer.ruleNames[state.ruleIndex]
+            # Original logic for other node types (Sync, Decision, Token consume, Rule exit, Error)
+            # or if "Rule entry" didn't receive specific event info (fallback path).
+            _current_parser_state_num = recognizer.state
+            _effective_state_num = _current_parser_state_num if _current_parser_state_num >= 0 else 0
+            state = recognizer._interp.atn.states[_effective_state_num]
+
+            # Your existing rule_name derivation logic (which you were refining):
+            if (node_type == "Rule entry" or node_type == "Rule exit"): # "Rule entry" here is fallback
+                if state.ruleIndex >= 0 and state.ruleIndex < len(recognizer.ruleNames):
+                    rule_name = recognizer.ruleNames[state.ruleIndex]
+                elif ctx is not None and ctx.getRuleIndex() >= 0:
+                    _r_idx = ctx.getRuleIndex()
+                    if _r_idx >=0 and _r_idx < len(recognizer.ruleNames): rule_name = recognizer.ruleNames[_r_idx]
+            elif ctx is not None and ctx.getRuleIndex() >= 0:
+                rule_idx_from_ctx = ctx.getRuleIndex()
+                if rule_idx_from_ctx >=0 and rule_idx_from_ctx < len(recognizer.ruleNames):
+                    rule_name = recognizer.ruleNames[rule_idx_from_ctx]
+                elif state.ruleIndex >= 0 and state.ruleIndex < len(recognizer.ruleNames):
+                    rule_name = recognizer.ruleNames[state.ruleIndex]
+            elif state.ruleIndex >= 0 and state.ruleIndex < len(recognizer.ruleNames):
+                rule_name = recognizer.ruleNames[state.ruleIndex]
+
+        # Ensure 'state' is assigned; if not (very unlikely with above logic), fallback.
+        if state is None: # Should not be hit if logic above is complete
+            state = recognizer._interp.atn.states[0]
+            if rule_name=="unknown" and state.ruleIndex >=0 and state.ruleIndex < len(recognizer.ruleNames):
+                rule_name = recognizer.ruleNames[state.ruleIndex]
+
+        state_num = state.stateNumber
                 
         # Capture Rule Stack
         rule_stack = []
@@ -382,8 +425,8 @@ class ParseTraversal:
         node = self.add_decision_point(
             state=state, # Pass the state object or number
             current_token_repr=token_str,
-            token_index=token_index,      # <<< Pass
-            rule_stack=rule_stack,        # <<< Pass
+            token_index=token_index,
+            rule_stack=rule_stack,
             lookahead=lookahead,
             possible_transitions=transitions,
             input_text=input_text,
@@ -759,24 +802,6 @@ class ParseTraversal:
         if new_nodes:
             self.root = new_nodes[0]
             self.root.previous_node = None
-
-
-    def _remove_startrule_entry(self):
-        """
-        Removes the first node in the traversal, which is the start rule entry node.
-        """
-        if self.all_steps:
-            # Update current node, if it was the previous root to the new root
-            if self.current_node == self.root:
-                self.current_node = None
-            
-            self.all_steps.pop(0)
-
-            # Update root to the next node
-            self.root = self.all_steps[0]
-            self.root.previous_node = None
-            if self.current_node == None:
-                self.current_node = self.root
 
 
     def _fix_node_ids(self):

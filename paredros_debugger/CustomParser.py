@@ -33,17 +33,32 @@ class CustomParser(Parser):
         self._errHandler = CustomDefaultErrorStrategy()
         self._errHandler.traversal.set_parser(self)
 
-    def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
-        self._errHandler.traversal.create_node(self, "Rule entry")
-        super().enterRule(localctx, state, ruleIndex)
+    def enterRule(self, localctx:ParserRuleContext, invokingState:int, ruleIndex:int):
+        # Get the actual start ATN state object of the rule being entered
+        actual_rule_start_state = self.atn.ruleToStartState[ruleIndex]
+        
+        self._errHandler.traversal.create_node(
+            recognizer=self,
+            node_type="Rule entry",
+            event_rule_index=ruleIndex,
+            event_atn_state_number=actual_rule_start_state.stateNumber 
+        )
+        super().enterRule(localctx, invokingState, ruleIndex)
+
 
     def exitRule(self):
         self._errHandler.traversal.create_node(self, "Rule exit")
         super().exitRule()
 
-    def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
-        self._errHandler.traversal.create_node(self, "Rule entry")
-        super().enterRecursionRule(localctx, state, ruleIndex, precedence)
+    def enterRecursionRule(self, localctx:ParserRuleContext, invokingState:int, ruleIndex:int, precedence:int):
+        actual_rule_start_state = self.atn.ruleToStartState[ruleIndex]
+        self._errHandler.traversal.create_node(
+            recognizer=self,
+            node_type="Rule entry",
+            event_rule_index=ruleIndex,
+            event_atn_state_number=actual_rule_start_state.stateNumber
+        )
+        super().enterRecursionRule(localctx, invokingState, ruleIndex, precedence)
 
     def match(self, ttype):
         return super().match(ttype)
