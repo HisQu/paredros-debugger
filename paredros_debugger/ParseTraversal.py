@@ -400,6 +400,8 @@ class ParseTraversal:
             self._handle_rule_exit(node)
         elif event_type == "Decision":
             self._handle_decision(node, chosen_index)
+        elif event_type == "Error":
+            self._handle_error(node)
 
         self.current_node = node
         return node
@@ -428,6 +430,10 @@ class ParseTraversal:
     
     def _handle_decision(self, node: ParseStep, chosen_index: int):
         node.chosen_transition_index = chosen_index
+        return node
+    
+    def _handle_error(self, node: ParseStep):
+        node.set_error()
         return node
 
 

@@ -87,26 +87,27 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             print(f"report called")
             self.error_occurred = True
 
-            # Create final error node to indicate where parsing failed
-            state = recognizer._interp.atn.states[recognizer.state]
-            rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
-            token = recognizer.getCurrentToken()
-            lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
-            token_str = self.traversal._token_str(recognizer, token)
-            alternatives = self.traversal.follow_transitions(state, recognizer)
+            # # Create final error node to indicate where parsing failed
+            # state = recognizer._interp.atn.states[recognizer.state]
+            # rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
+            # token = recognizer.getCurrentToken()
+            # lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
+            # token_str = self.traversal._token_str(recognizer, token)
+            # alternatives = self.traversal.follow_transitions(state, recognizer)
 
-            # Add final error node
-            node = self.traversal.add_decision_point(
-                state,
-                token_str,
-                lookahead,
-                alternatives,
-                self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
-                rule,
-                "Error",
-                token_stream=copy_token_stream(recognizer.getTokenStream())
-            )
-            node.set_error()
+            # # Add final error node
+            # node = self.traversal.add_decision_point(
+            #     state,
+            #     token_str,
+            #     lookahead,
+            #     alternatives,
+            #     self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
+            #     rule,
+            #     "Error",
+            #     token_stream=copy_token_stream(recognizer.getTokenStream())
+            # )
+            # node.set_error()
+            self.traversal._add_new_node("Error", recognizer)
 
         super().reportError(recognizer, e)
 
