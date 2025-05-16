@@ -664,7 +664,7 @@ class ParseTraversal:
             )
 
             merged_node.id = group[0].id  # Use first node's ID
-            merged_node.has_error = any(n.has_error for n in group)  # Mark as error if any node has error
+            merged_node.is_error_node = any(n.is_error_node for n in group)  # Mark as error if any node has error
             merged_node.alternative_branches = all_alt_nodes  # Use all alternative nodes
             merged_node.chosen_transition_index = new_chosen
             merged_nodes.append((group, merged_node))

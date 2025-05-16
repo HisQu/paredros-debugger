@@ -75,7 +75,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     parse_info.parse(input_file)  # run the parse
 
     # Check if at least one node had a parse error
-    had_error = any(node.has_error for node in parse_info.traversal.all_steps)
+    had_error = any(node.is_error_node for node in parse_info.traversal.all_steps)
     if had_error:
         print("=== Parsing completed: Errors were encountered. ===")
     else:
