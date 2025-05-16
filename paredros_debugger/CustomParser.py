@@ -42,7 +42,9 @@ class CustomParser(Parser):
 
     def exitRule(self):
         rule_name = self.ruleNames[self._ctx.getRuleIndex()]
-        self._errHandler.traversal._handle_parser_event("rule_exit", self, rule_name) 
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._add_new_node("Rule exit", self, rule_name)
+        #self._errHandler.traversal._handle_parser_event("rule_exit", self, rule_name) 
         super().exitRule()
 
     def enterRecursionRule(self, localctx, state, ruleIndex, precedence):

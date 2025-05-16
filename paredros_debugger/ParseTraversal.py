@@ -343,6 +343,16 @@ class ParseTraversal:
                     # We matched a token - mark it as chosen path
                     self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(readable_token)
 
+        if event_type == "Rule exit":
+            # Update previous node if it was waiting for an exit
+            if self.current_node and self.current_node.chosen_transition_index == -1:
+                for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                    if any(t == 'Exit' for t in tokens):
+                        self.current_node.chosen_transition_index = alt_idx + 1
+                        break
+            # Exit nodes have no alternatives (we cant model them from the atn represenation)
+            current_token = f"Rule exit: {rule_name}"
+            alternatives = [(00, ['Exit'])]
 
         # Create the new node
         node = self.add_decision_point(
@@ -360,6 +370,8 @@ class ParseTraversal:
             self._handle_rule_entry(node)
         elif event_type == "Token consume":
             self._handle_token_consume(node)
+        elif event_type == "Rule exit":
+            self._handle_rule_exit(node)
 
         self.current_node = node
         return node
@@ -380,6 +392,10 @@ class ParseTraversal:
     
     def _handle_token_consume(self, node: ParseStep):
         node.chosen_transition_index = 1  # Token matches are single pathed
+        return node
+    
+    def _handle_rule_exit(self, node: ParseStep):
+        node.chosen_transition_index = 1
         return node
 
 
