@@ -332,7 +332,7 @@ class ParseTraversal:
         # Create the new node
         node = self.add_decision_point(
             state.stateNumber,
-            readableToken,
+            rule_name,
             lookahead,
             alternatives,
             input_text,
