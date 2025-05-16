@@ -88,25 +88,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             self.error_occurred = True
 
             # # Create final error node to indicate where parsing failed
-            # state = recognizer._interp.atn.states[recognizer.state]
-            # rule = recognizer.ruleNames[recognizer._ctx.getRuleIndex()] if recognizer._ctx else "unknown"
-            # token = recognizer.getCurrentToken()
-            # lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), 3)
-            # token_str = self.traversal._token_str(recognizer, token)
-            # alternatives = self.traversal.follow_transitions(state, recognizer)
-
-            # # Add final error node
-            # node = self.traversal.add_decision_point(
-            #     state,
-            #     token_str,
-            #     lookahead,
-            #     alternatives,
-            #     self.traversal._get_consumed_tokens(recognizer.getTokenStream(), 3),
-            #     rule,
-            #     "Error",
-            #     token_stream=copy_token_stream(recognizer.getTokenStream())
-            # )
-            # node.set_error()
             self.traversal._add_new_node("Error", recognizer)
 
         super().reportError(recognizer, e)
@@ -142,44 +123,6 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         if self.error_occurred:
             return
 
-        # Attempt the same logging style as in adaptivePredict
-        # ruleIndex = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
-        # ruleName = recognizer.ruleNames[ruleIndex] if ruleIndex >= 0 else "unknown"
-        # state = recognizer._interp.atn.states[recognizer.state]
-        # currentToken = recognizer.getCurrentToken()
-        # readableToken = self.traversal._token_str(recognizer, currentToken)
-        # maxLookahead = 3
-
-        # # Track sync point
-        # current_token = recognizer.getCurrentToken()
-        # lookahead = self.traversal._get_lookahead_tokens(recognizer, recognizer.getTokenStream(),
-        #                                        maxLookahead)
-        # alternatives = self.traversal.follow_transitions(state, recognizer)
-        
-        # input_text = self.traversal._get_consumed_tokens(recognizer.getTokenStream(), maxLookahead)
-
-        # # Create new decision point node
-        # node = self.traversal.add_decision_point(
-        #     state,
-        #     readableToken,
-        #     lookahead,
-        #     alternatives, 
-        #     input_text,
-        #     ruleName,
-        #     "Sync",
-        #     token_stream=copy_token_stream(recognizer.getTokenStream())
-        # )
-
-        # # Check if the "last" node had a ruleentry that matches the current rule
-        # if self.current_node and self.current_node.possible_transitions:
-        #     if self.current_node.matches_rule_entry(ruleName):
-        #         # Look for the alternative that matched the rule and mark it as chosen
-        #         for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
-        #             if any(t.startswith('Rule') and ruleName in t for t in tokens):
-        #                 self.current_node.chosen_transition_index = i + 1
-        #                 break
-
-        # self.current_node = node
         self.traversal._add_new_node("Sync", recognizer)
         super().sync(recognizer)
 
