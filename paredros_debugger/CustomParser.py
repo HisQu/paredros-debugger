@@ -35,7 +35,8 @@ class CustomParser(Parser):
 
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]
-        self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
         #self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
         super().enterRule(localctx, state, ruleIndex)
 
@@ -46,7 +47,9 @@ class CustomParser(Parser):
 
     def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
         rule_name = self.ruleNames[ruleIndex]
-        self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
+        #self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
     def match(self, ttype):
@@ -55,5 +58,6 @@ class CustomParser(Parser):
     def consume(self):
         t = self.getCurrentToken()
         #self._errHandler.traversal._handle_parser_event("token_consume", self, None, t)
-        self._errHandler.traversal._add_new_node("Token consume", self, t)
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._add_new_node("Token consume", self, t)
         return super().consume()
