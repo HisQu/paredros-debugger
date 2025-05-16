@@ -208,6 +208,18 @@ class ParseTraversal:
             - Maintains the graph structure by linking nodes appropriately
             - Root node is set to first created node
         """
+        if (self.current_node and 
+            int(str(self.current_node.state)) == int(str(state)) and  
+            self.current_node.chosen_transition_index == -1):
+            # Update current node
+            self.current_node.possible_transitions = possible_transitions
+            self.current_node.lookahead = lookahead
+            self.current_node.input_text = input_text
+            self.current_node.current_token = current_token
+            self.current_node.rule_name = current_rule
+            self.current_node.node_type = node_type
+            self.current_node.token_stream = token_stream
+            return self.current_node
 
         # Create node if no duplicate found
         new_node = ParseStep(state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream)
@@ -298,7 +310,7 @@ class ParseTraversal:
         return alt_node
     
 
-    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None):
+    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None):
         """
         Add a new node to the parse traversal based on the event type.
         
@@ -354,6 +366,10 @@ class ParseTraversal:
             current_token = f"Rule exit: {rule_name}"
             alternatives = [(00, ['Exit'])]
 
+        if event_type == "Decision":
+            current_token = readable_token
+
+
         # Create the new node
         node = self.add_decision_point(
             state.stateNumber,
@@ -372,6 +388,8 @@ class ParseTraversal:
             self._handle_token_consume(node)
         elif event_type == "Rule exit":
             self._handle_rule_exit(node)
+        elif event_type == "Decision":
+            self._handle_decision(node, chosen_index)
 
         self.current_node = node
         return node
@@ -396,6 +414,10 @@ class ParseTraversal:
     
     def _handle_rule_exit(self, node: ParseStep):
         node.chosen_transition_index = 1
+        return node
+    
+    def _handle_decision(self, node: ParseStep, chosen_index: int):
+        node.chosen_transition_index = chosen_index
         return node
 
 
