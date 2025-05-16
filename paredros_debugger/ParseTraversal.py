@@ -354,7 +354,7 @@ class ParseTraversal:
             if self.current_node and self.current_node.possible_transitions:
                 if self.current_node.matches_token(readable_token):
                     # We matched a token - mark it as chosen path
-                    self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(readable_token)
+                    self.current_node.chosen_transition_index = self.current_node.get_matching_transition(readable_token)
 
         if event_type == "Rule exit":
             # Update previous node if it was waiting for an exit

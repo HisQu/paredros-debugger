@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 The CLI debugger provides an interactive way to explore how ANTLR4 processes your input, showing:
 - Current parsing state
-- Available alternatives at each decision point
+- Available transitions at each decision point
 - Token consumption
 - Rule entry/exit points
 - Detailed lookahead information

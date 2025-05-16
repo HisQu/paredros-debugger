@@ -3,17 +3,17 @@ ParseStep represents a node in the parser's traversal graph. Each node captures 
 in the parsing process, including the current state, available transitions, and parsing decisions.
 
 The node can represent different types of parsing events:
-- Decision points (where the parser must choose between alternatives)
+- Decision points (where the parser must choose between transitions)
 - Rule entries/exits 
 - Token consumption
 - Error states
 
 Each node maintains:
 - Its current ATN state and parser context
-- Available parsing alternatives
-- Chosen alternative
+- Currently available parsing transitions
+- Chosen transition
 - Links to previous/next nodes
-- Alternative paths that could have been taken
+- Transition paths that could have been taken
 
 The node structure forms a directed graph where:
 - next_node points to the sequential parsing path
@@ -56,7 +56,7 @@ class ParseStep:
             atn_state: ATN state number or object
             current_token: Current token being processed
             lookahead: List of upcoming tokens
-            possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
+            possible_transitions: Available parsing paths to traverse into as (state, tokens) pairs
             input_text: Current input context with cursor position
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
@@ -136,14 +136,14 @@ class ParseStep:
 
     def matches_rule_entry(self, ruleName: str) -> bool:
         """
-        Check if this node's alternatives include entering the specified rule.
+        Check if this node's transitions include entering the specified rule.
         Used by error handler to track rule entry decisions.
 
         Args:
             ruleName (str): Name of the rule to check for
 
         Returns:
-            bool: True if one of the alternatives enters this rule
+            bool: True if one of the transitions enters this rule
         """
         for alt_state, tokens in self.possible_transitions:
             if any(t.startswith('Rule') and ruleName in t for t in tokens):
@@ -152,7 +152,7 @@ class ParseStep:
     
     def matches_token(self, token_str: str) -> bool:
         """
-        Check if this node's alternatives include matching the given token.
+        Check if this node's transitions include matching the given token.
         Used by error handler to track token consumption decisions.
         Handles both literal tokens ('a', '(') and typed tokens (INT, ID).
 
@@ -160,7 +160,7 @@ class ParseStep:
             token_str (str): Token to match against
 
         Returns:
-            bool: True if one of the alternatives matches this token
+            bool: True if one of the transitions matches this token
         """
         # Handle literals
         if token_str.startswith("Literal"):
@@ -180,7 +180,7 @@ class ParseStep:
                     return True
         return False
 
-    def get_matching_alternative(self, token_str: str) -> int:
+    def get_matching_transition(self, token_str: str) -> int:
         """
         Find which alternative matches the given token and return its index.
         Used by error handler to determine which path was taken when consuming a token.
@@ -189,7 +189,7 @@ class ParseStep:
             token_str (str): Token to match against
 
         Returns:
-            int: 1-based index of matching alternative, or -1 if no match found
+            int: 1-based index of matching transition, or -1 if no match found
         """
         # Handle literals
         if token_str.startswith("Literal"):
