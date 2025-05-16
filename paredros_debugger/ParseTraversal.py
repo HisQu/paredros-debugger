@@ -314,13 +314,17 @@ class ParseTraversal:
         #     return None
 
         state = parser._interp.atn.states[parser.state]
-        readableToken = self._token_str(parser, parser.getCurrentToken())
+        readable_token = self._token_str(parser, parser.getCurrentToken())
         lookahead = self._get_lookahead_tokens(parser, parser.getTokenStream(), 3)
         alternatives = self.follow_transitions(state, parser)
         input_text = self._get_consumed_tokens(parser.getTokenStream(), 3)
         token_stream = copy_token_stream(parser.getTokenStream())
 
+        # Default case
+        current_token = readable_token
+
         if event_type == "Rule entry":
+            current_token = rule_name
             # Update previous node if it was waiting for this rule
             if self.current_node and self.current_node.chosen_transition_index == -1:
                 for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
@@ -328,11 +332,22 @@ class ParseTraversal:
                         self.current_node.chosen_transition_index = alt_idx + 1
                         break
 
+        if event_type == "Token consume":
+            current_token = readable_token
+            rule_index = parser._ctx.getRuleIndex() if parser._ctx else -1
+            rule_name = parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+            
+            # Update previous node if the current token matches an alternative
+            if self.current_node and self.current_node.possible_transitions:
+                if self.current_node.matches_token(readable_token):
+                    # We matched a token - mark it as chosen path
+                    self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(readable_token)
+
 
         # Create the new node
         node = self.add_decision_point(
             state.stateNumber,
-            rule_name,
+            current_token,
             lookahead,
             alternatives,
             input_text,
@@ -343,6 +358,8 @@ class ParseTraversal:
 
         if event_type == "Rule entry":
             self._handle_rule_entry(node)
+        elif event_type == "Token consume":
+            self._handle_token_consume(node)
 
         self.current_node = node
         return node
@@ -359,6 +376,10 @@ class ParseTraversal:
                     break
             else:
                 node.chosen_transition_index = -1
+        return node
+    
+    def _handle_token_consume(self, node: ParseStep):
+        node.chosen_transition_index = 1  # Token matches are single pathed
         return node
 
 

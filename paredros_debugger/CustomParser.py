@@ -54,5 +54,6 @@ class CustomParser(Parser):
     
     def consume(self):
         t = self.getCurrentToken()
-        self._errHandler.traversal._handle_parser_event("token_consume", self, None, t)
+        #self._errHandler.traversal._handle_parser_event("token_consume", self, None, t)
+        self._errHandler.traversal._add_new_node("Token consume", self, t)
         return super().consume()
