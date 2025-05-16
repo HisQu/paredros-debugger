@@ -369,6 +369,16 @@ class ParseTraversal:
         if event_type == "Decision":
             current_token = readable_token
 
+        if event_type == "Sync":
+            current_token = readable_token
+            # Check if the "last" node had a ruleentry that matches the current rule
+            if self.current_node and self.current_node.possible_transitions:
+                if self.current_node.matches_rule_entry(rule_name):
+                    # Look for the alternative that matched the rule and mark it as chosen
+                    for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                        if any(t.startswith('Rule') and rule_name in t for t in tokens):
+                            self.current_node.chosen_transition_index = i + 1
+
 
         # Create the new node
         node = self.add_decision_point(
