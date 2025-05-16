@@ -23,6 +23,7 @@ from antlr4.atn.ATNState import ATNState
 
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import copy_token_stream
+from antlr4.Parser import Parser
 
 class ParseTraversal:
     def __init__(self):
@@ -91,7 +92,7 @@ class ParseTraversal:
                 # Convert label to its symbolicName
                 symbolic = recognizer.symbolicNames[label] if label < len(recognizer.symbolicNames) else None
                 if symbolic:
-                    results.append((next_state, symbolic))
+                    results.append((next_state, [symbolic]))
                 continue
 
             # -- SetTransition => multiple tokens
@@ -296,6 +297,70 @@ class ParseTraversal:
 
         return alt_node
     
+
+    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None):
+        """
+        Add a new node to the parse traversal based on the event type.
+        
+        Args:
+            event_type (str): Type of parser event ("token_consume", "rule_entry", "rule_exit", "decision", "sync", "error")
+            recognizer (Parser): The parser instance
+            
+        Returns:
+            ParseStep: The created node, or None if error occurred
+        """
+        # Not needed since it is handeled by the classes that call this function
+        # if recognizer._errHandler.error_occurred:
+        #     return None
+
+        state = parser._interp.atn.states[parser.state]
+        readableToken = self._token_str(parser, parser.getCurrentToken())
+        lookahead = self._get_lookahead_tokens(parser, parser.getTokenStream(), 3)
+        alternatives = self.follow_transitions(state, parser)
+        input_text = self._get_consumed_tokens(parser.getTokenStream(), 3)
+        token_stream = copy_token_stream(parser.getTokenStream())
+
+        if event_type == "Rule entry":
+            # Update previous node if it was waiting for this rule
+            if self.current_node and self.current_node.chosen_transition_index == -1:
+                for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                    if any(t.startswith(f'Rule {rule_name}') for t in tokens):
+                        self.current_node.chosen_transition_index = alt_idx + 1
+                        break
+
+
+        # Create the new node
+        node = self.add_decision_point(
+            state.stateNumber,
+            readableToken,
+            lookahead,
+            alternatives,
+            input_text,
+            rule_name,
+            event_type,
+            token_stream
+        )
+
+        if event_type == "Rule entry":
+            self._handle_rule_entry(node)
+
+        self.current_node = node
+        return node
+        
+
+
+    def _handle_rule_entry(self, node: ParseStep):
+        if len(node.possible_transitions) == 1:
+            node.chosen_transition_index = 1
+        else:
+            for alt_idx, (_, tokens) in enumerate(node.possible_transitions):
+                if any(t == 'Exit' for t in tokens):
+                    node.chosen_transition_index = alt_idx + 1
+                    break
+            else:
+                node.chosen_transition_index = -1
+        return node
+
 
     def _handle_parser_event(self, event_type, recognizer, rule_name=None, token=None):
         """

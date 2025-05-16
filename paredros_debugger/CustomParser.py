@@ -35,7 +35,8 @@ class CustomParser(Parser):
 
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]
-        self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
+        self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
+        #self._errHandler.traversal._handle_parser_event("rule_entry", self, rule_name)
         super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
