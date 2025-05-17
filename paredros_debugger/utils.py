@@ -7,8 +7,10 @@ import importlib
 import os
 import subprocess
 import sys
+from typing import Optional
 from paredros_debugger.ModifyGrammarParserFile import modify_parser_file
-from antlr4 import CommonTokenStream
+from antlr4 import CommonTokenStream, Token
+from antlr4_tool_runner import initialize_paths, install_jre_and_antlr, latest_version
 
 def find_grammar_file(folder_path):
     """
@@ -36,8 +38,10 @@ def generate_parser(folder_path, grammar_file):
     Returns:
         None
     """
-    command = ["antlr4", "-Dlanguage=Python3", grammar_file]
-    subprocess.run(command, cwd=folder_path, check=True)
+    initialize_paths()
+    version = os.environ.get("ANTLR4_TOOLS_ANTLR_VERSION") or latest_version()
+    jar, java = install_jre_and_antlr(version)
+    subprocess.run([java, '-cp', jar, 'org.antlr.v4.Tool'] + ["-Dlanguage=Python3 " + grammar_file], cwd=folder_path, check=True)
 
 def modify_generated_parser(folder_path):
     """
@@ -102,6 +106,42 @@ def get_start_rule(grammar_file):
                         return extracted_rule_names
     except FileNotFoundError:
         return ''
+    
+def token_to_dict(token: Token, symbolic_names: list[str]) -> Optional[dict]:
+    """
+    Converts an ANTLR Token object into a serializable dictionary.
+
+    Args:
+        token (Token): The ANTLR Token object.
+        symbolic_names (List[str]): The list of symbolic names from the Lexer/Parser.
+
+    Returns:
+        Optional[dict]: A dictionary with token info, or None if token is invalid.
+    """
+    if not isinstance(token, Token):
+        return None
+
+    token_type_name = "EOF" # Default for EOF
+    if token.type > 0 and token.type < len(symbolic_names):
+        token_type_name = symbolic_names[token.type]
+    elif token.type == Token.EOF:
+         pass
+    else:
+         token_type_name = "<INVALID>"
+
+    # Use -1 or specific value if index is invalid
+    token_index = token.tokenIndex if token.tokenIndex >= 0 else -1
+
+    return {
+        "text": token.text,
+        "type_name": token_type_name,
+        "type_id": token.type,
+        "line": token.line,
+        "column": token.column,
+        "start_index": token.start, 
+        "stop_index": token.stop,   
+        "token_index": token_index  
+    }
 
 
 
