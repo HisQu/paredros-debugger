@@ -88,7 +88,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             self.error_occurred = True
 
             # # Create final error node to indicate where parsing failed
-            self.traversal._add_new_node("Error", recognizer)
+            self.traversal._create_new_node("Error", recognizer)
 
         super().reportError(recognizer, e)
 
@@ -123,7 +123,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         if self.error_occurred:
             return
 
-        self.traversal._add_new_node("Sync", recognizer)
+        self.traversal._create_new_node("Sync", recognizer)
         super().sync(recognizer)
 
 

@@ -341,7 +341,7 @@ class ParseTraversal:
         return alt_node
     
 
-    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None, state_override: int = None):
+    def _create_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None, state_override: int = None):
         """
         Add a new node to the parse traversal based on the event type.
         

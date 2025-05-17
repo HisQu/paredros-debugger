@@ -36,24 +36,22 @@ class CustomParser(Parser):
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]
         if not self._errHandler.error_occurred:
-            # For the start rule, we need to get the initial state from the ATN
-            if not self._ctx:  # This indicates it's the first rule
-                start_state = self._interp.atn.ruleToStartState[ruleIndex]
-                self._errHandler.traversal._add_new_node("Rule entry", self, rule_name, None, start_state.stateNumber)
-            else:
-                self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
+            # We can extract the state dirctly since the rule index is known
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
         super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
         rule_name = self.ruleNames[self._ctx.getRuleIndex()]
         if not self._errHandler.error_occurred:
-            self._errHandler.traversal._add_new_node("Rule exit", self, rule_name)
+            self._errHandler.traversal._create_new_node("Rule exit", self, rule_name)
         super().exitRule()
 
     def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
         rule_name = self.ruleNames[ruleIndex]
         if not self._errHandler.error_occurred:
-            self._errHandler.traversal._add_new_node("Rule entry", self, rule_name)
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
     def match(self, ttype):
@@ -62,5 +60,5 @@ class CustomParser(Parser):
     def consume(self):
         t = self.getCurrentToken()
         if not self._errHandler.error_occurred:
-            self._errHandler.traversal._add_new_node("Token consume", self, t)
+            self._errHandler.traversal._create_new_node("Token consume", self, t)
         return super().consume()
