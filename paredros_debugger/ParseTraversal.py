@@ -341,7 +341,7 @@ class ParseTraversal:
         return alt_node
     
 
-    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None):
+    def _add_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None, state_override: int = None):
         """
         Add a new node to the parse traversal based on the event type.
         
@@ -353,7 +353,7 @@ class ParseTraversal:
             ParseStep: The created node
         """
 
-        state = parser._interp.atn.states[parser.state]
+        state = parser._interp.atn.states[state_override] if state_override is not None else parser._interp.atn.states[parser.state]
         readable_token = self._token_str(parser, parser.getCurrentToken())
         lookahead = self._get_lookahead_tokens(parser, parser.getTokenStream(), 3)
         alternatives = self.follow_transitions(state, parser)
@@ -406,6 +406,10 @@ class ParseTraversal:
             alternatives = [(00, ['Exit'])]
 
         if event_type == "Sync":
+
+            rule_index = parser._ctx.getRuleIndex() if parser._ctx else -1
+            rule_name = parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+
             # Check if the "last" node had a ruleentry that matches the current rule
             if self.current_node and self.current_node.possible_transitions:
                 if self.current_node.matches_rule_entry(rule_name):
