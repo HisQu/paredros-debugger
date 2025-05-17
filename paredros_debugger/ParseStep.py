@@ -56,16 +56,16 @@ class ParseStep:
 
         Args:
             atn_state: ATN state number or object
-            current_token: Current token being processed
+            current_token_repr: String representation of the current token being processed
+            token_index: Index of the current token in the full token list, or None.
+            rule_stack: List of rule names representing the current parser rule stack.
             lookahead: List of upcoming tokens
-            possible_transitions: Available parsing paths to traverse into as (state, tokens) pairs
+            possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
             input_text: Current input context with cursor position
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
+            token_stream: The token stream being processed (or a copy).
             previous_id: ID of previous node for sequential numbering (-1 for root)
-            is_error_node: Flag indicating if this node is an error state
-            has_error: Flag indicating that the current token does not match what the grammar expects
-            token_stream: The token stream being processed
         """
 
         # Node information

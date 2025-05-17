@@ -203,21 +203,23 @@ class ParseTraversal:
 
         Args:
             state: Current ATN state number/object
-            current_token: The token currently being processed
+            current_token_repr: The token currently being processed
+            token_index: Index of the current token in the full token list, or None.
+            rule_stack: List of rule names representing the current parser rule stack.
             lookahead: List of upcoming tokens being considered
             possible_transitions: List of (state, tokens) pairs representing possible transitions
             input_text: Current input with cursor position showing progress
             current_rule: Name of the current grammar rule
             node_type: Type of node (Decision, Sync, Rule entry/exit, Token consume)
+            token_stream: The token stream state at this point (often a copy).
 
         Returns:
-            ParseNode: Either a new node or the updated existing node
+            ParseStep: The newly created node added to the main traversal path.
 
         Note:
-            - Creates alternative nodes for each possible transition
-            - Handles duplicate nodes from adaptivePredict and sync calls
-            - Maintains the graph structure by linking nodes appropriately
-            - Root node is set to first created node
+            - This function builds the core step and its potential alternative branches.
+            - It links the new step into the main `self.all_steps` list and updates `self.current_node`.
+            - It calculates `matching_error` for the new node and its alternatives.
         """
         # This part can be removed. The mergingstrategy in group_and_merge will take care of this
         # The result is that we have slightly different nodenames in the final graph (i.e. "Decision" vs. "Merged Decision")
@@ -347,7 +349,7 @@ class ParseTraversal:
         
         Args:
             event_type (str): Type of parser event ("Token consume", "Rule entry", "Rule exit", "Decision", "Sync", "Error")
-            recognizer (Parser): The parser instance
+            parser (Parser): The parser instance
             
         Returns:
             ParseStep: The created node
@@ -553,7 +555,7 @@ class ParseTraversal:
             node_id: The ID to search for (can be numeric or 'Alt X' format)
 
         Returns:
-            ParseNode: The node with matching ID, or None if not found
+            ParseStep: The node with matching ID, or None if not found
         """
         def search_node(node: ParseStep):
             if str(node.id) == str(node_id):
