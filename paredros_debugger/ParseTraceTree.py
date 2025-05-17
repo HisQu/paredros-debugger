@@ -95,7 +95,7 @@ class ParseTraceTree:
                 self.node_id_to_tree_node[str(pnode.id)] = rule_node
 
             elif nt == "Token consume":
-                token_node = ParseTreeNode(token=pnode.current_token)
+                token_node = ParseTreeNode(token=pnode.current_token_repr)
                 token_node.trace_steps.append(pnode)
                 # Attach to the current rule on top of stack (if any)
                 if stack:

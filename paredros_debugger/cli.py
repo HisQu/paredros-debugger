@@ -125,7 +125,7 @@ def interactive_explorer_repl(
             print(f" Step ID: {cur_node.id}")
             print(f" Node Type: {cur_node.node_type}")
             print(f" Rule Name: {cur_node.rule_name}")
-            print(f" Current Token: {cur_node.current_token}")
+            print(f" Current Token: {cur_node.current_token_repr}")
             print(f" Chosen Alt: {cur_node.chosen_transition_index}")
             print(f" Matching Error? {cur_node.matching_error}")
             print(f" Possible Alts: {len(cur_node.possible_transitions)}")

@@ -30,7 +30,7 @@ Example node types:
 
 from pprint import pprint
 import json
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from antlr4.atn.Transition import Transition, AtomTransition, SetTransition
 from antlr4.atn.ATNState import ATNState
@@ -41,7 +41,9 @@ from antlr4.Parser import Parser
 class ParseStep:
     def __init__(self, 
                  atn_state: Any, 
-                 current_token: Any, 
+                 current_token_repr: str,
+                 token_index: Optional[int],
+                 rule_stack: List[str],
                  lookahead: List[Any], 
                  possible_transitions: List[Tuple[int, List[str]]], 
                  input_text: str, 
@@ -78,10 +80,12 @@ class ParseStep:
 
         # Rule and grammar context
         self.rule_name = rule
+        self.rule_stack = rule_stack
         self.state = atn_state
 
         # Token and input information
-        self.current_token = current_token
+        self.current_token_repr = current_token_repr
+        self.token_index = token_index
         self.token_stream = token_stream
         self.input_text = input_text
         self.lookahead = lookahead
@@ -226,11 +230,11 @@ class ParseStep:
         else:
             atn_state = self.state
 
-        if not self.current_token:
+        if not self.current_token_repr:
             return False
 
         # Split token string into type and value
-        token_str = str(self.current_token)
+        token_str = str(self.current_token_repr)
         token_type = token_str.split(" ")[0]  # e.g. "WORD" from "WORD ('Henricus')"
 
         if not atn_state.transitions:
@@ -277,22 +281,48 @@ class ParseStep:
             
         return no_match
     
-    def to_dict(self):
+    def to_dict(self, include_transitions: bool = True) -> dict:
         """
-        Convert the node to a dictionary representation.
-        
+        Convert the node to a dictionary representation, suitable for JSON serialization.
+
+        Args:
+            include_transitions (bool): Whether to include the detailed possible_transitions list. Defaults to True.
+
         Returns:
             dict: Dictionary representation of the node
         """
-        return {
+        data = {
             "step_id": str(self.id),
             "node_type": self.node_type,
+            "rule_name": self.rule_name,
+            "rule_stack": self.rule_stack,
             "state": str(self.state),
-            "current_token": str(self.current_token),
-            "chosen": self.chosen_transition_index,
-            "input_text": self.input_text,
+            "current_token_repr": self.current_token_repr,
+            "token_index": self.token_index,
+            "chosen_transition_index": self.chosen_transition_index,
+            "input_text_context": self.input_text,
+            "lookahead_repr": self.lookahead,
             "matching_error": self.matching_error,
-            "possible_transitions": str(self.possible_transitions),
+            "is_error_node": self.is_error_node,
             "next_input_token": self.next_input_token,
             "next_input_literal": self.next_input_literal,
         }
+        if include_transitions:
+             # Convert transitions to strings for simpler JSON
+            data["possible_transitions"] = [
+                {"target_state": t[0], "matches": t[1]} for t in self.possible_transitions
+            ]
+        else:
+            data["possible_transitions_count"] = len(self.possible_transitions)
+
+        return data
+
+    def get_step_as_json(self):
+        """Returns the object's attributes as a JSON string."""
+        return json.dumps(self.to_dict(), indent=4, ensure_ascii=False)
+
+    def get_next_step_as_json(self):
+        """Returns the next node's attributes as a dictionary."""
+        if self.next_node:
+            return json.dumps(self.next_node.to_dict(), indent=4, ensure_ascii=False)
+        return json.dumps({})
