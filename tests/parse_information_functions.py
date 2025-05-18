@@ -28,7 +28,7 @@ class InterfaceTest(unittest.TestCase):
         self.assertEqual(rule_name, node["rule_name"], f"[SIMPLETON] {node['id']} should be {rule_name}")
         self.assertEqual(None, node["token"], f"[SIMPLETON] {node['rule_name']} should not have a token")
 
-    def test_simpleton_grammar(self):
+    def test_simpleton_grammar_with_valid_input(self):
         """
         This method tests the Simpleton grammar with a valid input.
         It checks whether all node types, rule names and token consumptions are correct.
@@ -80,15 +80,28 @@ class InterfaceTest(unittest.TestCase):
         drei = rule_zwoelf["children"][2]
         self.check_lexeme(drei, "DREI ('3')")
 
-
-        # ---------- NEW INPUT ----------
+    def test_simpleton_grammar_with_invalid_input(self):
+        """
+        This method tests the Simpleton grammar with an invalid input.
+        It checks whether all node types, rule names and token consumptions are correct.
+        """
+        from paredros_debugger.ParseInformation import ParseInformation
+        p = ParseInformation(grammar_file_path="../Simpleton/Simpleton_Reg.g4")
+        p.generate_parser()
         # all invalid characters, which have no lexemes
         p.parse(raw_input_content="44440y0xaosiduouinmc")
         root = p.get_current_tree_dict(verbose=True)
-        # the root node should be startRule and be of type rule
         self.check_rule(root, "startRule")
         # no children
         self.assertEqual(0, len(root["children"]))
+
+        # TODO add more assertions after discussion with the team
+
+        # the parse tree should be a dict
+        self.assertEqual(dict, type(root))
+
+        # pass through the tree and check that all ids are unique
+        self.check_ids(root)
 
 if __name__ == '__main__':
     unittest.main()
