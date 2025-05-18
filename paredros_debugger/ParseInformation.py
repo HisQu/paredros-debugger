@@ -123,7 +123,31 @@ class ParseInformation:
             print(ln)
             raise Exception(ln)
 
-    def parse(self, input_file_path: str):
+    def parse_from_file(self, input_file_path: str):
+        """
+        Parses the content of the given input file.
+
+        Args:
+            input_file_path (str): Path to the input file to parse.
+        """
+        self.input_file = os.path.abspath(input_file_path)
+        if not os.path.exists(self.input_file):
+            raise FileNotFoundError(f"The input file '{self.input_file}' does not exist.")
+
+        try:
+            with open(self.input_file, "r", encoding="utf-8") as f:
+                input_text = f.read()
+        except IOError as e:
+            raise IOError(f"Could not read input file '{self.input_file}': {e}") from e
+
+        if input_text is None:
+            raise ValueError("Input text could not be read.")
+        if not self.lexer_class or not self.parser_class:
+            raise RuntimeError("Lexer or Parser class not loaded. Initialize first using `generate_parser`.")
+
+        self.parse(input_text)
+
+    def parse(self, raw_input_content: str):
         """
         Parses the content of the given input file.
 
@@ -134,26 +158,14 @@ class ParseInformation:
         - Initializes the `ParseTreeExplorer`.
 
         Args:
-            input_file_path (str): Path to the input file to parse.
+            raw_input_content (str): The input text to parse.
 
         Raises:
             FileNotFoundError: If the input file cannot be found or read.
             Exception: If parsing fails critically.
         """
-        self.input_file = os.path.abspath(input_file_path)
-        if not os.path.exists(self.input_file):
-            raise FileNotFoundError(f"The input file '{self.input_file}' does not exist.")
 
-        try:
-            with open(self.input_file, "r", encoding="utf-8") as f:
-                self.input_text = f.read()
-        except IOError as e:
-            raise IOError(f"Could not read input file '{self.input_file}': {e}") from e
-
-        if self.input_text is None:
-             raise ValueError("Input text could not be read.")
-        if not self.lexer_class or not self.parser_class:
-             raise RuntimeError("Lexer or Parser class not loaded. Initialize first using `generate_parser`.")
+        self.input_text = raw_input_content
 
         print("======= Parsing Input =======")
         self.input_stream = InputStream(self.input_text)
