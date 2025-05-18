@@ -144,8 +144,6 @@ class ParseInformation:
 
         if input_text is None:
             raise ValueError("Input text could not be read.")
-        if not self.lexer_class or not self.parser_class:
-            raise RuntimeError("Lexer or Parser class not loaded. Initialize first using `generate_parser`.")
 
         self.parse(input_text)
 
@@ -165,6 +163,9 @@ class ParseInformation:
             FileNotFoundError: If the input file cannot be found or read.
             Exception: If parsing fails critically.
         """
+
+        if not self.lexer_class or not self.parser_class:
+            raise RuntimeError("Lexer or Parser class not loaded. Initialize first using `generate_parser`.")
 
         self.input_text = raw_input_content
 
