@@ -5,6 +5,29 @@ This module tests the interface to paredros. It especially tests, whether the
 ParseInformation class is adequate and exposed.
 """
 class InterfaceTest(unittest.TestCase):
+
+    def check_ids(self, node):
+        ids = {}
+        def _check(n):
+            # all nodes have to have different ids
+            if n["id"] in ids:
+                self.fail("[SIMPLETON] All nodes should have different ids")
+            ids[n["id"]] = True
+            for child in n["children"]:
+                _check(child)
+        _check(node)
+
+    def check_lexeme(self, node:dict, token:str):
+        self.assertEqual("token", node["node_type"], f"[SIMPLETON] {node['id']} should be of type lexeme")
+        self.assertEqual(None, node["rule_name"],
+                         f"[SIMPLETON] {node['id']} should be a lexer rule and not have a rule name")
+        self.assertEqual(token, node["token"], f"[SIMPLETON] Lexeme {node['id']} should have a token")
+
+    def check_rule(self, node:dict, rule_name:str):
+        self.assertEqual("rule", node["node_type"], f"[SIMPLETON] {node['id']} should be of type rule")
+        self.assertEqual(rule_name, node["rule_name"], f"[SIMPLETON] {node['id']} should be {rule_name}")
+        self.assertEqual(None, node["token"], f"[SIMPLETON] {node['rule_name']} should not have a token")
+
     def test_simpleton_grammar(self):
         """
         This method tests the Simpleton grammar with a valid input.
@@ -14,60 +37,58 @@ class InterfaceTest(unittest.TestCase):
         p = ParseInformation(grammar_file_path="../Simpleton/Simpleton_Reg.g4")
         p.generate_parser()
         p.parse(raw_input_content="123")
-        root = p.get_current_tree_dict()
+        root = p.get_current_tree_dict(verbose=True)
 
         # the parse tree should be a dict
         self.assertEqual(dict, type(root))
 
         # pass through the tree and check that all ids are unique
-        ids = {}
-        def check_ids(node):
-            # all nodes have to have different ids
-            if node["id"] in ids:
-                self.fail("[SIMPLETON] All nodes should have different ids")
-            ids[node["id"]] = True
-            for child in node["children"]:
-                check_ids(child)
+        self.check_ids(root)
 
         # ---------- ROOT ----------
         # the root node should be startRule and be of type rule
-        self.assertEqual("rule", root["node_type"], "[SIMPLETON] Root node should be of type rule")
-        self.assertEqual("startRule", root["rule_name"], "[SIMPLETON] Root node should be startRule")
-        self.assertEqual(None, root["token"], "[SIMPLETON] 'startRule' should not have a token")
+        self.check_rule(root, "startRule")
         # only one child
         self.assertEqual(1, len(root["children"]))
 
         # ---------- FIRST CHILD ----------
         rule_zwoelf = root["children"][0]
-        # all nodes have to have different ids
-        self.assertNotEqual(rule_zwoelf["id"], root["id"])
-
-        # misleadingly, the rule "zwoelf" matches the string "123"
-        self.assertEqual("zwoelf", rule_zwoelf["rule_name"], "[SIMPLETON] First child should be rule 'zwoelf'")
-        self.assertEqual("rule", rule_zwoelf["node_type"], "[SIMPLETON] First child should be of type rule")
-        self.assertEqual(None, rule_zwoelf["token"],  "[SIMPLETON] Rule 'zwoelf' should not have a token")
+        # misleadingly, the rule "zwoelf" can be substituted to match the string "123"
+        self.check_rule(root, "startRule")
 
         # 'zwoelf' can be superseded by:
         # zwoelf -> EINS X,
         # X -> X ZWEI | ZWEI,
         # X -> X DREI | DREI
 
+        # For the input '123' there should now be three children of zwoelf:
+        self.assertEqual(3, len(rule_zwoelf["children"]), "[SIMPLETON] Rule 'zwoelf' should have three children")
+
+
         # ---------- FIRST LEXEME ----------
         # the first lexeme should be "EINS"
         eins = rule_zwoelf["children"][0]
-        # all nodes have to have different ids
-        self.assertNotEqual(eins["id"], rule_zwoelf["id"])
-        self.assertEqual("token", eins["node_type"], "[SIMPLETON] First child should be of type lexeme")
-        self.assertEqual("EINS", eins["rule_name"], "[SIMPLETON] First child should be lexeme 'EINS'")
-        self.assertEqual("1", eins["token"], "[SIMPLETON] Lexeme 'EINS' should have a token")
+        self.check_lexeme(eins, "EINS ('1')")
 
         # ---------- SECOND LEXEME ----------
         # the second lexeme should be "ZWEI"
         zwei = rule_zwoelf["children"][1]
-        # all nodes have to have different ids
-        self.assertNotEqual(zwei["id"], rule_zwoelf["id"])
-        self.assertNotEqual(zwei["id"], eins["id"])
+        self.check_lexeme(zwei, "ZWEI ('2')")
 
+        # ---------- THIRD LEXEME ----------
+        # the third lexeme should be "DREI"
+        drei = rule_zwoelf["children"][2]
+        self.check_lexeme(drei, "DREI ('3')")
+
+
+        # ---------- NEW INPUT ----------
+        # all invalid characters, which have no lexemes
+        p.parse(raw_input_content="44440y0xaosiduouinmc")
+        root = p.get_current_tree_dict(verbose=True)
+        # the root node should be startRule and be of type rule
+        self.check_rule(root, "startRule")
+        # no children
+        self.assertEqual(0, len(root["children"]))
 
 if __name__ == '__main__':
     unittest.main()
