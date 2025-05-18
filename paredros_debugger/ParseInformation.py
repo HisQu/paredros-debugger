@@ -126,6 +126,8 @@ class ParseInformation:
     def parse_from_file(self, input_file_path: str):
         """
         Parses the content of the given input file.
+        - Reads the input file.
+        - Calls `parse()` to perform lexing and parsing.
 
         Args:
             input_file_path (str): Path to the input file to parse.
@@ -149,9 +151,8 @@ class ParseInformation:
 
     def parse(self, raw_input_content: str):
         """
-        Parses the content of the given input file.
+        Parses the content of a given input string.
 
-        - Reads the input file.
         - Performs lexing and parsing using the loaded ANTLR classes.
         - Captures the detailed parse traversal.
         - Builds the final `ParseTraceTree`.
