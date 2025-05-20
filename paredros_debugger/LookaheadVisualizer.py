@@ -53,6 +53,9 @@ class LookaheadVisualizer(ParserATNSimulator):
         # Perform prediction
         prediction = super().adaptivePredict(input, decision, outerContext)
 
+         # Get current parsing context
+        current_rule = self.parser.ruleNames[outerContext.getRuleIndex()] if outerContext else "start"
+        
         traversal: ParseTraversal = self.parser._errHandler.traversal
         traversal._create_new_node("Decision", self.parser, current_rule, prediction)
         # Debug

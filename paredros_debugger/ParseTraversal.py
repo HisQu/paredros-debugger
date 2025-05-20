@@ -269,14 +269,14 @@ class ParseTraversal:
                 alt_rule_name = self.parser.ruleNames[alt_rule_index] if alt_rule_index >= 0 else current_rule
 
                 alt_node = ParseStep(
-                    atn_state=target_state,
+                    atn_state=target_state_num,
                     current_token_repr=current_token_repr,
                     token_index=token_index,
                     rule_stack=rule_stack,
                     lookahead=lookahead,
                     possible_transitions=[],  # No transitions for alternative nodes yet
                     input_text=input_text,
-                    rule=rule_name,
+                    rule=alt_rule_name,
                     node_type=node_type,
                     token_stream=token_stream
                 )
