@@ -72,14 +72,15 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
     def reportError(self, recognizer:Parser, e:RecognitionException):
         """
-        Enhance default Report Error and report an error to the parser and record the error in the parse traversal.
+        Records an error in the parse traversal graph and delegates to the superclass 
+        implementation for actual error handling.
+
+        This method ensures the first error encountered is marked in the parse graph to
+        help with debugging, but only tracks the first error occurrence.
 
         Args:
             recognizer (Parser): The parser instance.
             e (RecognitionException): The recognition exception that occurred.
-
-        Returns:
-            None
         """
         print(f"ERROR type: {type(e)}")
         # Only track first error
@@ -92,32 +93,16 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
 
         super().reportError(recognizer, e)
 
-    def recover(self, recognizer:Parser, e:RecognitionException):
-        """
-        Enhance standard recovery and attempt to recover from a recognition exception with
-        verbose logging.
-
-        Args:
-            recognizer (Parser): The parser instance.
-            e (RecognitionException): The recognition exception that occurred.
-
-        Returns:
-            None
-        """
-        print("Recovering")
-        print(f"[ErrorStrategy] Attempting recovery in state {recognizer.state} with token {e.offendingToken}")
-        super().recover(recognizer, e)
-
     def sync(self, recognizer:Parser):
         """
-        Enhance standard sync and attempt to synchronize the parser after a recognition exception
-        with verbose logging.
+        Records a sync event in the parse traversal graph and delegates to the superclass
+        implementation for token resynchronization.
+
+        This method adds a sync node to the parse graph to track parser recovery attempts,
+        but only if no errors have occurred yet.
 
         Args:
             recognizer (Parser): The parser instance.
-
-        Returns:
-            None
         """
         # Only add states if no error occurred
         if self.error_occurred:

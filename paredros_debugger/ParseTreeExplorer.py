@@ -231,7 +231,7 @@ class ParseTreeExplorer:
         possible_steps: list[ParseStep] = []
         for alt_index in range(len(step.possible_transitions)):
             # Get the ParseStep for this alternative (alt_index is 0-based, method expects 1-based)
-            alt_step = self._traversal.expand_alternative(step, alt_index + 1)
+            alt_step = self._traversal.expand_transition(step, alt_index + 1)
             if alt_step:
                 possible_steps.append(alt_step)
             

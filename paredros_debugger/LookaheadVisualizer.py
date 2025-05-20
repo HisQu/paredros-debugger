@@ -49,16 +49,12 @@ class LookaheadVisualizer(ParserATNSimulator):
         """
         if self.parser._errHandler.error_occurred:
             return super().adaptivePredict(input, decision, outerContext)
-        
-        # Get current parsing context
-        current_rule = self.parser.ruleNames[outerContext.getRuleIndex()] if outerContext else "start"
 
         # Perform prediction
         prediction = super().adaptivePredict(input, decision, outerContext)
 
         traversal: ParseTraversal = self.parser._errHandler.traversal
         traversal._create_new_node("Decision", self.parser, current_rule, prediction)
-        
         # Debug
         # ----------------------------------------
         # print(f"\n🔍 Decision point in {current_rule} (state {state} decision {decision})")

@@ -23,7 +23,7 @@ def get_file_path(arg_value: str, default_path: str, arg_name: str) -> str:
             sys.exit(1)
         return os.path.abspath(default_path)
     else:
-        # Validate user-provided path
+        # Validate the user-provided path
         abs_path = os.path.abspath(arg_value)
         if not (os.path.exists(abs_path) and os.path.isfile(abs_path)):
             print(f"Error: The {arg_name} '{abs_path}' does not exist or is not a file.")
@@ -86,7 +86,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     parse_tree = ParseTraceTree()
     parse_tree.build_from_traversal(parse_info.traversal)
 
-    # Dump final parse tree to JSON for reference
+    # Dump the final parse tree to JSON for reference
     if verbose:
         now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_file = f"parseTree_{now_str}.json"
@@ -103,7 +103,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
 
 def interactive_explorer_repl(
     explorer: ParseTreeExplorer, 
-    parse_info: ParseInformation, 
+    parse_info: ParseInformation,
     verbose: bool = False):
     """
     A more interactive REPL using our ParseTreeExplorer,
@@ -225,7 +225,7 @@ def interactive_explorer_repl(
                     alt_idx = int(alt_str)
                     explorer.choose_alternative(alt_idx)
                 except ValueError:
-                    print("Invalid integer. Cancelling alt expansion.")
+                    print("Invalid integer  . Cancelling alt expansion.")
                     explorer.cancel_alt_expansion()
                 except RuntimeError as e:
                     print(f"Error picking alt: {e}")

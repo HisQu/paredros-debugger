@@ -191,7 +191,7 @@ class ParseTraversal:
                            possible_transitions: List[Tuple[int, List[str]]], 
                            input_text: str, 
                            current_rule: str, 
-                           node_type: str, 
+                           node_type: str,
                            token_stream):
         """
         Creates a new node in the parse traversal or updates an existing one. This method is called 
@@ -262,11 +262,11 @@ class ParseTraversal:
             self.current_node = new_node
 
         if possible_transitions:
-            for alt_num, (target_state, _) in enumerate(possible_transitions):
+            for alt_num, (target_state_num, _) in enumerate(possible_transitions):
 
-                state = self.parser._interp.atn.states[target_state]
-                rule_index = state.ruleIndex if hasattr(state, "ruleIndex") else -1
-                rule_name = self.parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+                target_state_obj = self.parser._interp.atn.states[target_state_num]
+                alt_rule_index = target_state_obj.ruleIndex if hasattr(target_state_obj, "ruleIndex") else -1
+                alt_rule_name = self.parser.ruleNames[alt_rule_index] if alt_rule_index >= 0 else current_rule
 
                 alt_node = ParseStep(
                     atn_state=target_state,
@@ -287,22 +287,22 @@ class ParseTraversal:
 
         return new_node
 
-    def expand_alternative(self, node: ParseStep, alternative_index: int):
-        """Create a new branch from the given node for the specified alternative
+    def expand_transition(self, node: ParseStep, transition_index: int):
+        """Create a new branch from the given node for the specified transition
 
         Args:
-            node (ParseStep): The node containing the alternative to expand
-            alternative_index (int): Index of the alternative to expand (1-based)
+            node (ParseStep): The node containing the transition to expand
+            transition_index (int): Index of the transition to expand (1-based)
 
         Returns:
-            ParseStep: The expanded alternative node with its new possible transitions
+            ParseStep: The expanded transition node with its new possible transitions
         """
-        if not node or alternative_index < 1 or alternative_index > len(node.alternative_branches):
+        if not node or transition_index < 1 or transition_index > len(node.alternative_branches):
             return None
 
         # Get the state of the node we want to expand
-        alt_node = node.alternative_branches[alternative_index - 1]
-        target_state_num = node.possible_transitions[alternative_index - 1][0]
+        alt_node = node.alternative_branches[transition_index - 1]
+        target_state_num = node.possible_transitions[transition_index - 1][0]
         target_state = self.parser._interp.atn.states[target_state_num]
 
         # Get all possible transitions and update node
@@ -578,6 +578,59 @@ class ParseTraversal:
             return search_node(self.root)
         return None
 
+    # Methods for updating the Datastructure based on the type of node that was added
+    #--------------------------------------------------------------------------------#
+    def _process_sync_node(self, node:ParseStep, rule_name):
+        """Checks previous node and updates its chosen_transition_index"""
+        if self.current_node and self.current_node.possible_transitions:
+            if self.current_node.matches_rule_entry(rule_name):
+                # Look for the alternative that matched the rule and mark it as chosen
+                for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                    if any(t.startswith('Rule') and rule_name in t for t in tokens):
+                        self.current_node.chosen_transition_index = i + 1
+                        break
+        self.current_node = node
+
+    def _process_decision_node(self, node:ParseStep, decision):
+        """The chosen_transition_index is known for Decisionpoints so we just update it"""
+        node.chosen_transition_index = decision
+
+    def _process_error_node(self, node:ParseStep):
+        """Sets the Errorflag for the Errornode"""
+        node.set_error()
+
+    def _process_token_node(self, token_str):
+        """Updates previous node similar to how the sync functionality does it"""
+        if self.current_node and self.current_node.possible_transitions:
+            if self.current_node.matches_token(token_str):
+                # We matched a token - mark it as chosen path
+                self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(token_str)
+
+    def _process_rule_entry_node(self, node:ParseStep, rule_name, transitions):
+        """Sets the rulenode specific properties and updates the previous node"""
+        node.current_token_repr = rule_name
+
+        if len(transitions) == 1:
+            node.chosen_transition_index = 1
+        else:
+            for alt_idx, (_, tokens) in enumerate(transitions):
+                if any(t == 'Exit' for t in tokens):
+                    node.chosen_transition_index = alt_idx + 1
+                    break
+            else:
+                node.chosen_transition_index = -1
+        
+        self.current_node = node
+
+    def _process_rule_exit_node(self):
+        """Updates the previous nodes chosen_transition_index"""
+        if self.current_node and self.current_node.chosen_transition_index == -1:
+            for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                if any(t == 'Exit' for t in tokens):
+                    self.current_node.chosen_transition_index = alt_idx + 1
+                    break
+    #--------------------------------------------------------------------------------#
+
     def _update_token_info_after_consume(self, node: ParseStep, expected_token: str):
         """
         Update a node's state after consuming a token from its token stream.
@@ -597,8 +650,8 @@ class ParseTraversal:
             node.current_token_repr = self.parser.symbolicNames[next_token.type]
             
             # Update input context and lookahead
-            node.input_text = self._get_consumed_tokens(node.token_stream, 3)
-            node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
+            node.input_text_context = self._get_consumed_tokens(node.token_stream, 3)
+            node.lookahead_repr = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
             
             # Set next token information
             upcoming_token = node.token_stream.LT(1)
@@ -701,10 +754,10 @@ class ParseTraversal:
                 atn_state=group[0].state, 
                 current_token=group[-1].current_token_repr, 
                 token_index=group[-1].token_index,
-                rule_stack=group[-1].rule_stack, 
+                rule_stack=group[0].rule_stack, 
                 lookahead=group[-1].lookahead,  
                 possible_transitions=all_alternatives,  
-                input_text=group[-1].input_text,  
+                input_text=group[-1].input_text_context,  
                 rule=group[0].rule_name,  
                 node_type="Merged " + group[0].node_type,
                 token_stream=group[0].token_stream,

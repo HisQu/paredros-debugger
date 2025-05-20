@@ -40,7 +40,7 @@ from antlr4.Parser import Parser
 
 class ParseStep:
     def __init__(self, 
-                 atn_state: Any, 
+                 atn_state: Any,
                  current_token_repr: str,
                  token_index: Optional[int],
                  rule_stack: List[str],
@@ -87,8 +87,8 @@ class ParseStep:
         self.current_token_repr = current_token_repr
         self.token_index = token_index
         self.token_stream = token_stream
-        self.input_text = input_text
-        self.lookahead = lookahead
+        self.input_text_context = input_text
+        self.lookahead_repr = lookahead
         self.next_input_token = None
         self.next_input_literal = None
 
