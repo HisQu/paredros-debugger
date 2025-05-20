@@ -578,59 +578,6 @@ class ParseTraversal:
             return search_node(self.root)
         return None
 
-    # Methods for updating the Datastructure based on the type of node that was added
-    #--------------------------------------------------------------------------------#
-    def _process_sync_node(self, node:ParseStep, rule_name):
-        """Checks previous node and updates its chosen_transition_index"""
-        if self.current_node and self.current_node.possible_transitions:
-            if self.current_node.matches_rule_entry(rule_name):
-                # Look for the alternative that matched the rule and mark it as chosen
-                for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
-                    if any(t.startswith('Rule') and rule_name in t for t in tokens):
-                        self.current_node.chosen_transition_index = i + 1
-                        break
-        self.current_node = node
-
-    def _process_decision_node(self, node:ParseStep, decision):
-        """The chosen_transition_index is known for Decisionpoints so we just update it"""
-        node.chosen_transition_index = decision
-
-    def _process_error_node(self, node:ParseStep):
-        """Sets the Errorflag for the Errornode"""
-        node.set_error()
-
-    def _process_token_node(self, token_str):
-        """Updates previous node similar to how the sync functionality does it"""
-        if self.current_node and self.current_node.possible_transitions:
-            if self.current_node.matches_token(token_str):
-                # We matched a token - mark it as chosen path
-                self.current_node.chosen_transition_index = self.current_node.get_matching_alternative(token_str)
-
-    def _process_rule_entry_node(self, node:ParseStep, rule_name, transitions):
-        """Sets the rulenode specific properties and updates the previous node"""
-        node.current_token_repr = rule_name
-
-        if len(transitions) == 1:
-            node.chosen_transition_index = 1
-        else:
-            for alt_idx, (_, tokens) in enumerate(transitions):
-                if any(t == 'Exit' for t in tokens):
-                    node.chosen_transition_index = alt_idx + 1
-                    break
-            else:
-                node.chosen_transition_index = -1
-        
-        self.current_node = node
-
-    def _process_rule_exit_node(self):
-        """Updates the previous nodes chosen_transition_index"""
-        if self.current_node and self.current_node.chosen_transition_index == -1:
-            for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
-                if any(t == 'Exit' for t in tokens):
-                    self.current_node.chosen_transition_index = alt_idx + 1
-                    break
-    #--------------------------------------------------------------------------------#
-
     def _update_token_info_after_consume(self, node: ParseStep, expected_token: str):
         """
         Update a node's state after consuming a token from its token stream.
