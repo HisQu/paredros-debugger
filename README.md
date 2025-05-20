@@ -48,7 +48,7 @@ The debugger visualizes ANTLR's parsing process through the Augmented Transition
 - **Node**: A point in the parsing process representing a parser state (rule entry, token match, etc.)
 - **Child Node**: The next sequential step in the parsing process
 - **Previous Node**: The previous step in the parsing process
-- **Alternatives**: Different possible paths the parser could take from a given state
+- **Transitions**: Different possible paths the parser could take from a given state
 - **Parse Path**: The actual sequence of states the parser follows to process your input
 
 The debugger creates a navigable graph of these nodes, allowing you to explore both the actual parse path and other potential paths ANTLR considered.
@@ -56,26 +56,42 @@ The debugger creates a navigable graph of these nodes, allowing you to explore b
 ### Basic Usage
 
 ```bash
-python -m paredros_debugger.cli <path_to_main_grammar.g4> <path_to_input.txt>
+python cli.py <path_to_main_grammar.g4> <path_to_input.txt>
 ```
 
 ### Interactive Commands
 
-The debugger operates in a REPL mode with two main navigation options:
+The debugger operates in a REPL (Read-Eval-Print Loop) mode. At each step, you'll see information about the current parse state, including the node type, rule name, current token, and available transitions. You can then enter commands to navigate and explore the parse process:
 
-1. **Direction Selection**
-   - `c` (or Enter): Move to child node
-   - `p`: Move to parent node
+- **Navigation:**
+    - `f` or `Enter` (when not in alternative expansion mode): Move forward one step along the default parse path.
+    - `b`: Go back one step.
+    - `n`: Step forward to the next decision node.
+    - `pd`: Step backward to the previous decision node.
+    - `r`: Reset to a specific step ID. You will be prompted to enter the numeric ID.
 
-2. **Alternative Exploration**
-   - `0` (or Enter): Follow the actual parse path
-   - `1-N`: Explore different parsing alternatives
+- **Alternative Exploration:**
+    - `a`: Expand alternatives for the current decision node. This will display the potential paths. You will then be prompted to:
+        - Enter a numeric index (1-based) to choose and follow an alternative path.
+        - Press `Enter` to choose the default/originally taken alternative.
+        - If an invalid choice is made, alternative expansion is cancelled.
 
-At each step, you'll see:
-- Current state and rule information
-- Token being processed
-- Available alternatives
-- Input context
+- **Other Commands:**
+    - `h`: Display the help menu with all available commands.
+    - `q`: Quit the interactive explorer.
+
+At each step, the REPL will display:
+- A view of the current partial parse tree.
+- Detailed information about the current parse step, including:
+    - Step ID
+    - Node Type (e.g., Decision, Rule entry, Token consume)
+    - Rule Name
+    - Current Token
+    - Chosen Transition/Alternative Index (if applicable)
+    - Whether a matching error occurred at this step
+    - Number of possible transitions (alternatives)
+    - Next input token and literal (if available)
+- A menu of available commands.
 
 
 ## How It Works

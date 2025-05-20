@@ -72,7 +72,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     """
     print(f"\n=== Parsing {input_file} ===")
     parse_info = ParseInformation(grammar_file)
-    parse_info.generate_parser()  # generate the parser
+    parse_info.generate_parser() # generate the parser
     parse_info.parse(input_file)  # run the parse
 
     # Check if at least one node had a parse error
