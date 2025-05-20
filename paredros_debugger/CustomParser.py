@@ -33,36 +33,32 @@ class CustomParser(Parser):
         self._errHandler = CustomDefaultErrorStrategy()
         self._errHandler.traversal.set_parser(self)
 
-    def enterRule(self, localctx:ParserRuleContext, invokingState:int, ruleIndex:int):
-        # Get the actual start ATN state object of the rule being entered
-        actual_rule_start_state = self.atn.ruleToStartState[ruleIndex]
-        
-        self._errHandler.traversal.create_node(
-            recognizer=self,
-            node_type="Rule entry",
-            event_rule_index=ruleIndex,
-            event_atn_state_number=actual_rule_start_state.stateNumber 
-        )
-        super().enterRule(localctx, invokingState, ruleIndex)
-
+    def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
+        rule_name = self.ruleNames[ruleIndex]
+        if not self._errHandler.error_occurred:
+            # We can extract the state dirctly since the rule index is known
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+        super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
-        self._errHandler.traversal.create_node(self, "Rule exit")
+        rule_name = self.ruleNames[self._ctx.getRuleIndex()]
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._create_new_node("Rule exit", self, rule_name)
         super().exitRule()
 
-    def enterRecursionRule(self, localctx:ParserRuleContext, invokingState:int, ruleIndex:int, precedence:int):
-        actual_rule_start_state = self.atn.ruleToStartState[ruleIndex]
-        self._errHandler.traversal.create_node(
-            recognizer=self,
-            node_type="Rule entry",
-            event_rule_index=ruleIndex,
-            event_atn_state_number=actual_rule_start_state.stateNumber
-        )
-        super().enterRecursionRule(localctx, invokingState, ruleIndex, precedence)
+    def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
+        rule_name = self.ruleNames[ruleIndex]
+        if not self._errHandler.error_occurred:
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+        super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
     def match(self, ttype):
         return super().match(ttype)
     
     def consume(self):
-        self._errHandler.traversal.create_node(self, "Token consume")
+        t = self.getCurrentToken()
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._create_new_node("Token consume", self, t)
         return super().consume()

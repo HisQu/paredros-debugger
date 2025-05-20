@@ -6,7 +6,7 @@ parser looks ahead in the token stream to resolve ambiguities.
 The class captures:
 - Current parsing context and state
 - Lookahead tokens being examined
-- Available alternatives at decision points
+- Available transitions at decision points
 - The chosen prediction path
 
 This information is delegated to the CustomErrorStrategy's traversal graph to build
@@ -40,12 +40,12 @@ class LookaheadVisualizer(ParserATNSimulator):
             outerContext (ParserRuleContext): The current rule context
 
         Returns:
-            int: The chosen alternative number
+            int: The chosen transition number
 
         Note:
             - Only tracks decisions if no error has occurred
             - Creates a Decision node in the traversal graph for each prediction
-            - Sets the chosen alternative based on ANTLR's prediction
+            - Sets the chosen transition based on ANTLR's prediction
         """
         if self.parser._errHandler.error_occurred:
             return super().adaptivePredict(input, decision, outerContext)
@@ -53,6 +53,8 @@ class LookaheadVisualizer(ParserATNSimulator):
         # Perform prediction
         prediction = super().adaptivePredict(input, decision, outerContext)
 
+        traversal: ParseTraversal = self.parser._errHandler.traversal
+        traversal._create_new_node("Decision", self.parser, current_rule, prediction)
         # Debug
         # ----------------------------------------
         # print(f"\n🔍 Decision point in {current_rule} (state {state} decision {decision})")
@@ -68,8 +70,5 @@ class LookaheadVisualizer(ParserATNSimulator):
         # print(f"   Chosen alternative: {prediction}")
         # print(f"   Input: {input_text}")
         # ----------------------------------------
-
-        traversal: ParseTraversal = self.parser._errHandler.traversal
-        traversal.create_node(self.parser, "Decision", prediction)
 
         return prediction
