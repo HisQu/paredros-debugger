@@ -1,6 +1,5 @@
 MyGrammarParser.py
 *Interpreter.py
-*Lexer.py
 *Listener.py
 *.Listener.py
 *.tokens
