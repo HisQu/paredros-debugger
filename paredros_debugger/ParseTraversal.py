@@ -515,6 +515,11 @@ class ParseTraversal:
         name = recognizer.symbolicNames[token.type]
         if name == "<INVALID>":
             return f"Literal ('{token.text}')"
+        elif token.type == Token.EOF:
+            return f"EOF ('{token.text}')"
+            # we could also just return EOF for this since afterwards there
+            # wont be any matching that needs the type text format and it looks cleaner
+            # return EOF 
         else:
             return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
 
