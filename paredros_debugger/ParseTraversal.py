@@ -22,7 +22,7 @@ from antlr4 import Token
 from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.atn.ATNState import ATNState
 
-from paredros_debugger.CustomLexer import INVALID
+from paredros_debugger.CustomLexer import CustomLexer
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import copy_token_stream
 from antlr4.Parser import Parser
@@ -514,7 +514,9 @@ class ParseTraversal:
             str: A string representation of the token.
         """
 
-        if token.type == INVALID:
+        # same type as defined in the customlexer
+        invalid_type = len(recognizer.symbolicNames)
+        if token.type == invalid_type:
             return f"INVALID ('{token.text}')"
         elif token.type >= len(recognizer.symbolicNames):
             return f"UNKNOWN ('{token.text}')"
