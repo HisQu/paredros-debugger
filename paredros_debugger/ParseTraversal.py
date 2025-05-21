@@ -699,10 +699,10 @@ class ParseTraversal:
             # Create merged node
             merged_node = ParseStep(
                 atn_state=group[0].state, 
-                current_token=group[-1].current_token_repr, 
+                current_token_repr=group[-1].current_token_repr, 
                 token_index=group[-1].token_index,
                 rule_stack=group[0].rule_stack, 
-                lookahead=group[-1].lookahead,  
+                lookahead=group[-1].lookahead_repr,  
                 possible_transitions=all_alternatives,  
                 input_text=group[-1].input_text_context,  
                 rule=group[0].rule_name,  
