@@ -23,7 +23,7 @@ from paredros_debugger.ParseTraceTree import ParseTraceTree, ParseTreeNode
 from paredros_debugger.ParseTraversal import ParseTraversal
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import (
-    generate_parser, modify_generated_parser, load_parser_and_lexer,
+    generate_parser, modify_generated_parser, modify_generated_lexer, load_parser_and_lexer,
     get_start_rule, token_to_dict
 )
 class ParseInformation:
@@ -99,10 +99,13 @@ class ParseInformation:
              raise Exception(ln)
 
         parser_file_to_modify = os.path.join(self.grammar_folder, self.name_without_ext + "Parser.py")
+        lexer_file_to_modify = os.path.join(self.grammar_folder, self.name_without_ext + "Lexer.py")
         if os.path.exists(parser_file_to_modify):
             try:
                 modify_generated_parser(parser_file_to_modify)
                 print("Parser modification completed.")
+                modify_generated_lexer(lexer_file_to_modify)
+                print("Lexer modification completed.")
             except Exception as e: # Broader catch for file IO etc.
                 print(f"Warning: Failed to modify the generated parser '{parser_file_to_modify}'. Error: {e}")
                 # Decide if this is critical - maybe proceed if parser loads anyway?
