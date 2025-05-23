@@ -299,6 +299,38 @@ class ParseInformation:
             "end_pos": rule.end_pos
         }
 
+    def get_remaining_input_text(self) -> Optional[str]:
+        """
+        Returns the text from the input stream that was not consumed by the parser.
+        This is constructed from the tokens remaining in the token stream after parsing.
+
+        Returns:
+            Optional[str]: The remaining unparsed text, or None if parsing
+                           hasn't occurred or the token stream is unavailable.
+                           Returns an empty string if all input was consumed up to EOF.
+        """
+        if not self.tokens:
+            # Token stream not initialized
+            return None
+
+        # self.tokens.index is the index of the next token to be consumed within self.tokens.tokens.
+        start_index_of_remaining = self.tokens.index
+        self.tokens.fill() # get all remaining tokens
+
+        # no remaining tokens         
+        if start_index_of_remaining >= len(self.tokens.tokens):
+            return ""
+
+        remaining_text_parts = []
+        for i in range(start_index_of_remaining, len(self.tokens.tokens)):
+            token = self.tokens.tokens[i]
+            if token.type == Token.EOF:
+                break # Stop at EOF, do not include its text
+            if token.text is not None:
+                remaining_text_parts.append(token.text)
+            
+        return "".join(remaining_text_parts)
+
     def get_current_parse_step_info(self) -> Optional[dict]:
         """
         Returns detailed information about the currently active parse step (`ParseStep`).

@@ -25,3 +25,4 @@ Simpleton/*.java
 Simpleton/*.dot
 *.png
 *.dot
+test_remaining.py
