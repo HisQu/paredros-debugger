@@ -48,6 +48,7 @@ class ParseStep:
                  lookahead: List[TokenInfo], 
                  possible_transitions: List[Tuple[int, List[str]]], 
                  input_text: str, 
+                 next_token_stream_index: Optional[int],
                  rule: str, 
                  node_type: str, 
                  token_stream:TokenStream, 
@@ -63,6 +64,7 @@ class ParseStep:
             lookahead: List of upcoming tokens
             possible_transitions: Available parsing alternatives to traverse into as (state, tokens) pairs
             input_text: Current input context with cursor position
+            next_token_stream_index: Index of the next token to be consumed in this step's token_stream.
             rule: Current grammar rule name
             node_type: Type of node (Decision, Rule entry/exit, Token consume, Error)
             token_stream: The token stream being processed (or a copy).
@@ -89,6 +91,7 @@ class ParseStep:
         self.token_index = token_index
         self.token_stream = token_stream
         self.input_text_context = input_text
+        self.next_token_stream_index = next_token_stream_index
         self.lookahead: List[TokenInfo] = lookahead
 
         # Decision tracking
@@ -300,6 +303,7 @@ class ParseStep:
             "token_index": self.token_index,
             "chosen_transition_index": self.chosen_transition_index,
             "input_text_context": self.input_text_context,
+            "next_token_stream_index": self.next_token_stream_index,
             "lookahead_repr": [str(tokenInfo) for tokenInfo in self.lookahead],
             "matching_error": self.matching_error,
             "is_error_node": self.is_error_node,

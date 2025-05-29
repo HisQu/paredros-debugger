@@ -191,6 +191,7 @@ class ParseTraversal:
                            lookahead: List[TokenInfo], 
                            possible_transitions: List[Tuple[int, List[str]]], 
                            input_text: str, 
+                           next_token_stream_index: Optional[int],
                            current_rule: str, 
                            node_type: str,
                            token_stream):
@@ -210,6 +211,7 @@ class ParseTraversal:
             lookahead: List of upcoming tokens being considered
             possible_transitions: List of (state, tokens) pairs representing possible transitions
             input_text: Current input with cursor position showing progress
+            next_token_stream_index: Index of the next token to be consumed in this step's token_stream.
             current_rule: Name of the current grammar rule
             node_type: Type of node (Decision, Sync, Rule entry/exit, Token consume)
             token_stream: The token stream state at this point (often a copy).
@@ -232,7 +234,8 @@ class ParseTraversal:
             # Update current node
             self.current_node.possible_transitions = possible_transitions
             self.current_node.lookahead = lookahead
-            self.current_node.input_text = input_text
+            self.current_node.input_text_context = input_text
+            self.current_node.next_token_stream_index = next_token_stream_index
             self.current_node.current_token_repr = current_token_repr
             self.current_node.rule_name = current_rule
             self.current_node.node_type = node_type
@@ -249,6 +252,7 @@ class ParseTraversal:
             lookahead=lookahead, 
             possible_transitions=possible_transitions, 
             input_text=input_text, 
+            next_token_stream_index=next_token_stream_index,
             rule=current_rule, 
             node_type=node_type, 
             token_stream=token_stream
@@ -277,6 +281,7 @@ class ParseTraversal:
                     lookahead=lookahead,
                     possible_transitions=[],  # No transitions for alternative nodes yet
                     input_text=input_text,
+                    next_token_stream_index=next_token_stream_index,
                     rule=alt_rule_name,
                     node_type=node_type,
                     token_stream=token_stream
@@ -327,7 +332,8 @@ class ParseTraversal:
                     rule_stack=alt_node.rule_stack,
                     lookahead=alt_node.lookahead,
                     possible_transitions=[],  # These nodes can be expanded further
-                    input_text=alt_node.input_text,
+                    input_text=alt_node.input_text_context,
+                    next_token_stream_index=alt_node.next_token_stream_index,
                     rule=rule_name,
                     node_type=alt_node.node_type,
                     token_stream=copy_token_stream(alt_node.token_stream)
@@ -362,6 +368,7 @@ class ParseTraversal:
         alternatives = self.follow_transitions(state, parser)
         input_text = self._get_consumed_tokens(parser.getTokenStream(), 3)
         token_stream = copy_token_stream(parser.getTokenStream())
+        next_token_stream_index = token_stream.index
 
         rule_stack = []
         temp_ctx = parser._ctx
@@ -431,6 +438,7 @@ class ParseTraversal:
             lookahead=lookahead,
             possible_transitions=alternatives,
             input_text=input_text,
+            next_token_stream_index=next_token_stream_index,
             current_rule=rule_name,
             node_type=event_type,
             token_stream=token_stream
@@ -710,9 +718,10 @@ class ParseTraversal:
                 current_token_repr=group[-1].current_token_repr, 
                 token_index=group[-1].token_index,
                 rule_stack=group[0].rule_stack, 
-                lookahead=group[-1].lookahead_repr,  
+                lookahead=group[-1].lookahead,  
                 possible_transitions=all_alternatives,  
-                input_text=group[-1].input_text_context,  
+                input_text=group[-1].input_text_context,
+                next_token_stream_index=group[0].next_token_stream_index,  
                 rule=group[0].rule_name,  
                 node_type="Merged " + group[0].node_type,
                 token_stream=group[0].token_stream,
