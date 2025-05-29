@@ -24,8 +24,11 @@ class CustomLexer(Lexer):
                           Token.DEFAULT_CHANNEL,
                           start,
                           stop)
-        self.emitToken(tok)                     
-        self._type = self.INVALID_TOKEN_TYPE  # Use the instance variable
+        
+        # only emit the token if it is not just whitespace or a newline
+        if not (tok.text == ' ' or tok.text == '\n'):
+            self.emitToken(tok)                     
+            self._type = self.INVALID_TOKEN_TYPE  # Use the instance variable
 
         self._input.consume()
 
