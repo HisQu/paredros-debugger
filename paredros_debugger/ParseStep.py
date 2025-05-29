@@ -90,8 +90,6 @@ class ParseStep:
         self.token_stream = token_stream
         self.input_text_context = input_text
         self.lookahead: List[TokenInfo] = lookahead
-        self.next_input_token = None
-        self.next_input_literal = None
 
         # Decision tracking
         self.chosen_transition_index = -1
@@ -305,8 +303,6 @@ class ParseStep:
             "lookahead_repr": [str(tokenInfo) for tokenInfo in self.lookahead],
             "matching_error": self.matching_error,
             "is_error_node": self.is_error_node,
-            "next_input_token": self.next_input_token,
-            "next_input_literal": self.next_input_literal,
         }
         if include_transitions:
              # Convert transitions to strings for simpler JSON

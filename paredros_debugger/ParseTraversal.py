@@ -618,18 +618,7 @@ class ParseTraversal:
             # Update input context and lookahead
             node.input_text_context = self._get_consumed_tokens(node.token_stream, 3)
             node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
-            
-            # Set next token information
-            upcoming_token = node.token_stream.LT(1)
-            if upcoming_token:
-                node.next_input_token = self.parser.symbolicNames[upcoming_token.type]
-                node.next_input_literal = upcoming_token.text
-            else:
-                node.next_input_token = None
-                node.next_input_literal = None
-        else:
-            node.next_input_token = None
-            node.next_input_literal = None
+
 
     def group_and_merge(self):
         """

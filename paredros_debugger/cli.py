@@ -130,9 +130,6 @@ def interactive_explorer_repl(
             print(f" Chosen Alt: {cur_node.chosen_transition_index}")
             print(f" Matching Error? {cur_node.matching_error}")
             print(f" Possible Alts: {len(cur_node.possible_transitions)}")
-            if cur_node.next_input_token or cur_node.next_input_literal:
-                print(f" Next Input Token: {cur_node.next_input_token}")
-                print(f" Next Input Literal: {cur_node.next_input_literal}")
         else:
             print("\n(No parse node at this step -- possibly at start or end of parse)")
 
