@@ -18,13 +18,14 @@ Key operations:
 - Managing node relationships and IDs
 """
 from typing import Any, List, Optional, Tuple
-from antlr4 import Token
+from antlr4 import Token, TokenStream
 from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.atn.ATNState import ATNState
 
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import copy_token_stream
 from antlr4.Parser import Parser
+from paredros_debugger.TokenInfo import TokenInfo
 
 class ParseTraversal:
     def __init__(self):
@@ -187,7 +188,7 @@ class ParseTraversal:
                            current_token_repr: str,
                            token_index: Optional[int],
                            rule_stack: List[str],
-                           lookahead: List[str], 
+                           lookahead: List[TokenInfo], 
                            possible_transitions: List[Tuple[int, List[str]]], 
                            input_text: str, 
                            current_rule: str, 
@@ -481,9 +482,9 @@ class ParseTraversal:
     ####################
     # Helper functions
     ####################
-    def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
+    def _get_lookahead_tokens(self, recognizer: Parser, input: TokenStream, lookahead_depth: int):
         """
-        Get the lookahead tokens for the current state in the ATN.
+        Get the lookahead tokens for the current state in the ATN as TokenInfo objects
 
         Args:
             recognizer (Parser): The parser instance.
@@ -491,15 +492,28 @@ class ParseTraversal:
             lookahead_depth (int): The depth of lookahead.
 
         Returns:
-            str: A string representation of the lookahead tokens
+            List[TokenInfo]: A list of TokenInfo objects representing the lookahead tokens.
         """
-        tokens = []
+        token_infos = []
         for i in range(1, lookahead_depth + 1):
-            token = input.LT(i)
+            token: Token = input.LT(i)
             if token.type == Token.EOF:
                 break
-            tokens.append(self._token_str(recognizer, token))
-        return ", ".join(tokens)
+
+            lexeme_name = recognizer.symbolicNames[token.type] if token.type < len(recognizer.symbolicNames) else f"Type_{token.type}"
+            if lexeme_name == "<INVALID>":
+                lexeme_name = "Literal"
+
+            token_info = TokenInfo(
+                index = token.tokenIndex,
+                lexeme_name = lexeme_name,
+                literal_value = token.text,
+                start_index = token.start,
+                stop_index = token.stop
+            )
+
+            token_infos.append(token_info)
+        return token_infos
 
     def _token_str(self, recognizer, token):
         """
@@ -603,7 +617,7 @@ class ParseTraversal:
             
             # Update input context and lookahead
             node.input_text_context = self._get_consumed_tokens(node.token_stream, 3)
-            node.lookahead_repr = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
+            node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
             
             # Set next token information
             upcoming_token = node.token_stream.LT(1)

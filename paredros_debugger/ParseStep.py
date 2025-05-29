@@ -37,6 +37,7 @@ from antlr4.atn.ATNState import ATNState
 from antlr4 import Token
 from antlr4.BufferedTokenStream import TokenStream
 from antlr4.Parser import Parser
+from paredros_debugger.TokenInfo import TokenInfo
 
 class ParseStep:
     def __init__(self, 
@@ -44,7 +45,7 @@ class ParseStep:
                  current_token_repr: str,
                  token_index: Optional[int],
                  rule_stack: List[str],
-                 lookahead: List[Any], 
+                 lookahead: List[TokenInfo], 
                  possible_transitions: List[Tuple[int, List[str]]], 
                  input_text: str, 
                  rule: str, 
@@ -88,7 +89,7 @@ class ParseStep:
         self.token_index = token_index
         self.token_stream = token_stream
         self.input_text_context = input_text
-        self.lookahead_repr = lookahead
+        self.lookahead: List[TokenInfo] = lookahead
         self.next_input_token = None
         self.next_input_literal = None
 
@@ -301,7 +302,7 @@ class ParseStep:
             "token_index": self.token_index,
             "chosen_transition_index": self.chosen_transition_index,
             "input_text_context": self.input_text_context,
-            "lookahead_repr": self.lookahead_repr,
+            "lookahead_repr": [str(tokenInfo) for tokenInfo in self.lookahead],
             "matching_error": self.matching_error,
             "is_error_node": self.is_error_node,
             "next_input_token": self.next_input_token,
