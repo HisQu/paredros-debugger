@@ -13,6 +13,7 @@ class ParseTreeNode:
      - children (list of sub-rules or tokens)
      - trace_steps (list of 'ParseStep' for debugging)
      - a unique id to reference in the UI
+     - contains_error (boolean indicating if any trace_step is an error)
     """
 
     _global_id_counter = 0
@@ -22,6 +23,7 @@ class ParseTreeNode:
         self.token = token
         self.children: List["ParseTreeNode"] = []
         self.trace_steps: List[ParseStep] = []  # list of 'ParseStep' references or copies
+        self.contains_error: bool = False  # True if any trace_step is an error
 
         # A unique ID for visualization (React Flow or anything else).
         self.id = f"ptn_{ParseTreeNode._global_id_counter}"
@@ -42,6 +44,7 @@ class ParseTreeNode:
             "token": self.token,
             "trace_info": trace_info if verbose else "collapsed",
             "children": [child.to_dict(verbose) for child in self.children],
+            "contains_error": self.contains_error,
         }    
 
 
@@ -83,9 +86,12 @@ class ParseTraceTree:
                 # We are entering a new grammar rule => create a new rule node
                 rule_node = ParseTreeNode(ruleName=pnode.rule_name)
                 rule_node.trace_steps.append(pnode)
+                rule_node.contains_error = pnode.node_type == "Error"
                 # Link to parent if any
                 if stack:
                     stack[-1].children.append(rule_node)
+                    if rule_node.contains_error:
+                        stack[-1].contains_error = True
                 else:
                     self.root = rule_node
                 stack.append(rule_node)
@@ -96,9 +102,12 @@ class ParseTraceTree:
             elif nt == "Token consume":
                 token_node = ParseTreeNode(token=pnode.current_token_repr)
                 token_node.trace_steps.append(pnode)
+                token_node.contains_error = pnode.node_type == "Error"
                 # Attach to the current rule on top of stack (if any)
                 if stack:
                     stack[-1].children.append(token_node)
+                    if token_node.contains_error:
+                        stack[-1].contains_error = True
                 else:
                     self.root = token_node
 
@@ -109,6 +118,11 @@ class ParseTraceTree:
                 if stack:
                     top_rule_node = stack[-1]
                     top_rule_node.trace_steps.append(pnode)
+                    if pnode.node_type == "Error":
+                        top_rule_node.contains_error = True
+                        # propagate error up the stack
+                        if len(stack) > 1:
+                            stack[-2].contains_error = True
                     stack.pop()
 
                 # Record in ID->tree_node for later direct reference
@@ -118,6 +132,11 @@ class ParseTraceTree:
                 # e.g. "Decision", "Sync", "Error"
                 if stack:
                     stack[-1].trace_steps.append(pnode)
+                    if pnode.node_type == "Error":
+                        stack[-1].contains_error = True
+                        # propagate error up the stack
+                        if len(stack) > 1:
+                            stack[-2].contains_error = True
 
                 # If there's no rule open, we might ignore or handle differently
                 self.node_id_to_tree_node[str(pnode.id)] = stack[-1] if stack else None
