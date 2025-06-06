@@ -23,6 +23,7 @@ Simpleton/*.tokens
 Simpleton/*.interp
 Simpleton/*.java
 Simpleton/*.dot
+Regest/*Parser.py
 *.png
 *.dot
 test_remaining.py
