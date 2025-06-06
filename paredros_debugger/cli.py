@@ -54,13 +54,13 @@ def main():
     # Retrieve the grammar and input file paths (either from args or defaults):
     grammar_file = get_file_path(
         arg_value=args.grammar_file_path,
-        default_path="Simpleton/Simpleton_Reg.g4",
+        default_path="Regest/Regest.g4",
         arg_name="grammar_file_path"
     )
 
     input_file = get_file_path(
         arg_value=args.input_file_path,
-        default_path="Simpleton/input.txt",
+        default_path="Regest/input.txt",
         arg_name="input_file_path"
     )
 
@@ -130,9 +130,6 @@ def interactive_explorer_repl(
             print(f" Chosen Alt: {cur_node.chosen_transition_index}")
             print(f" Matching Error? {cur_node.matching_error}")
             print(f" Possible Alts: {len(cur_node.possible_transitions)}")
-            if cur_node.next_input_token or cur_node.next_input_literal:
-                print(f" Next Input Token: {cur_node.next_input_token}")
-                print(f" Next Input Literal: {cur_node.next_input_literal}")
         else:
             print("\n(No parse node at this step -- possibly at start or end of parse)")
 

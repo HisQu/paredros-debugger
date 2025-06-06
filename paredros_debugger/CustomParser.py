@@ -36,9 +36,13 @@ class CustomParser(Parser):
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
         rule_name = self.ruleNames[ruleIndex]
         if not self._errHandler.error_occurred:
-            # We can extract the state dirctly since the rule index is known
             state = self._interp.atn.ruleToStartState[ruleIndex]
-            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            # The state for the first rule is always -1 so we have to add a special case to account for that
+            if self.state == -1: 
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            # Every other rule has its normal statenumber and therefore doesnt need any special handling
+            else:
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None)
         super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
@@ -51,7 +55,10 @@ class CustomParser(Parser):
         rule_name = self.ruleNames[ruleIndex]
         if not self._errHandler.error_occurred:
             state = self._interp.atn.ruleToStartState[ruleIndex]
-            self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            if self.state == -1: 
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            else:
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
     def match(self, ttype):

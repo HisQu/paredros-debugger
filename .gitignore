@@ -22,6 +22,8 @@ Simpleton/*.tokens
 Simpleton/*.interp
 Simpleton/*.java
 Simpleton/*.dot
+Regest/*Parser.py
 *.png
 *.dot
 /venv
+test_remaining.py

@@ -18,7 +18,7 @@ Key operations:
 - Managing node relationships and IDs
 """
 from typing import Any, List, Optional, Tuple
-from antlr4 import Token
+from antlr4 import Token, TokenStream
 from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.atn.ATNState import ATNState
 
@@ -26,6 +26,7 @@ from paredros_debugger.CustomLexer import CustomLexer
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import copy_token_stream
 from antlr4.Parser import Parser
+from paredros_debugger.TokenInfo import TokenInfo
 
 class ParseTraversal:
     def __init__(self):
@@ -188,9 +189,10 @@ class ParseTraversal:
                            current_token_repr: str,
                            token_index: Optional[int],
                            rule_stack: List[str],
-                           lookahead: List[str], 
+                           lookahead: List[TokenInfo], 
                            possible_transitions: List[Tuple[int, List[str]]], 
                            input_text: str, 
+                           next_token_stream_index: Optional[int],
                            current_rule: str, 
                            node_type: str,
                            token_stream):
@@ -210,6 +212,7 @@ class ParseTraversal:
             lookahead: List of upcoming tokens being considered
             possible_transitions: List of (state, tokens) pairs representing possible transitions
             input_text: Current input with cursor position showing progress
+            next_token_stream_index: Index of the next token to be consumed in this step's token_stream.
             current_rule: Name of the current grammar rule
             node_type: Type of node (Decision, Sync, Rule entry/exit, Token consume)
             token_stream: The token stream state at this point (often a copy).
@@ -232,7 +235,8 @@ class ParseTraversal:
             # Update current node
             self.current_node.possible_transitions = possible_transitions
             self.current_node.lookahead = lookahead
-            self.current_node.input_text = input_text
+            self.current_node.input_text_context = input_text
+            self.current_node.next_token_stream_index = next_token_stream_index
             self.current_node.current_token_repr = current_token_repr
             self.current_node.rule_name = current_rule
             self.current_node.node_type = node_type
@@ -249,6 +253,7 @@ class ParseTraversal:
             lookahead=lookahead, 
             possible_transitions=possible_transitions, 
             input_text=input_text, 
+            next_token_stream_index=next_token_stream_index,
             rule=current_rule, 
             node_type=node_type, 
             token_stream=token_stream
@@ -277,6 +282,7 @@ class ParseTraversal:
                     lookahead=lookahead,
                     possible_transitions=[],  # No transitions for alternative nodes yet
                     input_text=input_text,
+                    next_token_stream_index=next_token_stream_index,
                     rule=alt_rule_name,
                     node_type=node_type,
                     token_stream=token_stream
@@ -327,7 +333,8 @@ class ParseTraversal:
                     rule_stack=alt_node.rule_stack,
                     lookahead=alt_node.lookahead,
                     possible_transitions=[],  # These nodes can be expanded further
-                    input_text=alt_node.input_text,
+                    input_text=alt_node.input_text_context,
+                    next_token_stream_index=alt_node.next_token_stream_index,
                     rule=rule_name,
                     node_type=alt_node.node_type,
                     token_stream=copy_token_stream(alt_node.token_stream)
@@ -362,6 +369,7 @@ class ParseTraversal:
         alternatives = self.follow_transitions(state, parser)
         input_text = self._get_consumed_tokens(parser.getTokenStream(), 3)
         token_stream = copy_token_stream(parser.getTokenStream())
+        next_token_stream_index = token_stream.index
 
         rule_stack = []
         temp_ctx = parser._ctx
@@ -431,6 +439,7 @@ class ParseTraversal:
             lookahead=lookahead,
             possible_transitions=alternatives,
             input_text=input_text,
+            next_token_stream_index=next_token_stream_index,
             current_rule=rule_name,
             node_type=event_type,
             token_stream=token_stream
@@ -482,9 +491,9 @@ class ParseTraversal:
     ####################
     # Helper functions
     ####################
-    def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
+    def _get_lookahead_tokens(self, recognizer: Parser, input: TokenStream, lookahead_depth: int):
         """
-        Get the lookahead tokens for the current state in the ATN.
+        Get the lookahead tokens for the current state in the ATN as TokenInfo objects
 
         Args:
             recognizer (Parser): The parser instance.
@@ -492,15 +501,28 @@ class ParseTraversal:
             lookahead_depth (int): The depth of lookahead.
 
         Returns:
-            str: A string representation of the lookahead tokens
+            List[TokenInfo]: A list of TokenInfo objects representing the lookahead tokens.
         """
-        tokens = []
+        token_infos = []
         for i in range(1, lookahead_depth + 1):
-            token = input.LT(i)
+            token: Token = input.LT(i)
             if token.type == Token.EOF:
                 break
-            tokens.append(self._token_str(recognizer, token))
-        return ", ".join(tokens)
+
+            lexeme_name = recognizer.symbolicNames[token.type] if token.type < len(recognizer.symbolicNames) else f"Type_{token.type}"
+            if lexeme_name == "<INVALID>":
+                lexeme_name = "Literal"
+
+            token_info = TokenInfo(
+                index = token.tokenIndex,
+                lexeme_name = lexeme_name,
+                literal_value = token.text,
+                start_index = token.start,
+                stop_index = token.stop
+            )
+
+            token_infos.append(token_info)
+        return token_infos
 
     def _token_str(self, recognizer, token):
         """
@@ -524,6 +546,11 @@ class ParseTraversal:
         name = recognizer.symbolicNames[token.type]
         if name == "<INVALID>":
             return f"Literal ('{token.text}')"
+        elif token.type == Token.EOF:
+            return f"EOF ('{token.text}')"
+            # we could also just return EOF for this since afterwards there
+            # wont be any matching that needs the type text format and it looks cleaner
+            # return EOF 
         else:
             return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
 
@@ -607,19 +634,8 @@ class ParseTraversal:
             
             # Update input context and lookahead
             node.input_text_context = self._get_consumed_tokens(node.token_stream, 3)
-            node.lookahead_repr = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
-            
-            # Set next token information
-            upcoming_token = node.token_stream.LT(1)
-            if upcoming_token:
-                node.next_input_token = self.parser.symbolicNames[upcoming_token.type]
-                node.next_input_literal = upcoming_token.text
-            else:
-                node.next_input_token = None
-                node.next_input_literal = None
-        else:
-            node.next_input_token = None
-            node.next_input_literal = None
+            node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
+
 
     def group_and_merge(self):
         """
@@ -713,7 +729,8 @@ class ParseTraversal:
                 rule_stack=group[0].rule_stack, 
                 lookahead=group[-1].lookahead_repr,  
                 possible_transitions=all_alternatives,  
-                input_text=group[-1].input_text_context,  
+                input_text=group[-1].input_text_context,
+                next_token_stream_index=group[0].next_token_stream_index,  
                 rule=group[0].rule_name,  
                 node_type="Merged " + group[0].node_type,
                 token_stream=group[0].token_stream,
