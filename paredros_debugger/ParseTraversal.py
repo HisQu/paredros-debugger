@@ -512,6 +512,8 @@ class ParseTraversal:
             invalid_type = len(recognizer.symbolicNames)  # CustomLexer's INVALID token type
             if token.type == invalid_type:
                 lexeme_name = "INVALID"
+            elif token.type == Token.EOF:
+                lexeme_name = "EOF"
             else:
                 lexeme_name = recognizer.symbolicNames[token.type]
 
