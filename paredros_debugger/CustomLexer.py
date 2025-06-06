@@ -1,3 +1,4 @@
+from antlr4 import LexerATNSimulator
 from antlr4.Token import CommonToken, Token
 from antlr4.Lexer import Lexer
 from antlr4.error.Errors import LexerNoViableAltException
@@ -29,8 +30,9 @@ class CustomLexer(Lexer):
         if not (tok.text == ' ' or tok.text == '\n'):
             self.emitToken(tok)                     
             self._type = self.INVALID_TOKEN_TYPE  # Use the instance variable
-
-        self._input.consume()
+        
+        self._interp: LexerATNSimulator
+        self._interp.consume(self._input)
 
     def returnInvalidTokenType(self):
         return self.INVALID_TOKEN_TYPE
