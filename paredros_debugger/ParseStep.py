@@ -293,7 +293,7 @@ class ParseStep:
         """
         data = {
             "step_id": str(self.id),
-            "node_type": self.node_type,
+            "step_type": self.node_type,
             "rule_name": self.rule_name,
             "rule_stack": self.rule_stack,
             "state": str(self.state),

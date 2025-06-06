@@ -54,13 +54,13 @@ def main():
     # Retrieve the grammar and input file paths (either from args or defaults):
     grammar_file = get_file_path(
         arg_value=args.grammar_file_path,
-        default_path="Simpleton/Simpleton_Reg.g4",
+        default_path="Regest/Regest.g4",
         arg_name="grammar_file_path"
     )
 
     input_file = get_file_path(
         arg_value=args.input_file_path,
-        default_path="Simpleton/input.txt",
+        default_path="Regest/input.txt",
         arg_name="input_file_path"
     )
 
