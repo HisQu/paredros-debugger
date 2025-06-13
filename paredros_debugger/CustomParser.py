@@ -61,8 +61,14 @@ class CustomParser(Parser):
                 self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
-    def match(self, ttype):
-        return super().match(ttype)
+    def match(self, ttype:int):
+        t = self.getCurrentToken()
+        if t.type==ttype:
+            self._errHandler.reportMatch(self)
+            self.consume()
+        # else:
+        # removed the recoverInline call since we don't want to silently recover from mismatches
+        return t
     
     def consume(self):
         t = self.getCurrentToken()
