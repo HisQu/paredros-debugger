@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 from typing import Optional
-from paredros_debugger.ModifyGrammarParserFile import modify_parser_file
+from paredros_debugger.ModifyGrammarParserFile import modify_parser_file, modify_lexer_file
 from antlr4 import CommonTokenStream, Token
 from antlr4_tool_runner import initialize_paths, install_jre_and_antlr, latest_version
 
@@ -54,6 +54,18 @@ def modify_generated_parser(folder_path):
         None
     """
     modify_parser_file(folder_path)
+
+def modify_generated_lexer(folder_path):
+    """
+    Runs the modify_lexer_file.py script to process the generated files and apply CustomLexer Naming.
+
+    Args:
+        folder_path (str): The path to the folder containing the generated lexer files.
+
+    Returns:
+        None
+    """
+    modify_lexer_file(folder_path)
 
 def load_parser_and_lexer(folder_path, grammar_name):
     """
