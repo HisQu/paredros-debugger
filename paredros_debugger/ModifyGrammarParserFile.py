@@ -35,3 +35,39 @@ def modify_parser_file(filename):
 
     with open(filename, 'w', encoding="utf-8") as file:
         file.writelines(modified_lines)
+
+def modify_lexer_file(filename):
+    """
+    Modifies ANTLR-generated lexer files to use our custom lexer implementation.
+    This script replaces the base Lexer class with our CustomLexer class to enable
+    token event interception and traversal tracking.
+
+    Args:
+        filename (str): The path to the lexer file to modify
+
+    Returns:
+        None
+    """
+    with open(filename, 'r', encoding="utf-8") as file:
+        lines = file.readlines()
+
+    modified_lines = []
+    import_added = False
+    class_pattern = re.compile(r'^(\s*class\s+\w+\s*\(\s*)Lexer(\s*\).*)$')
+
+    for line in lines:
+        if class_pattern.match(line):
+            line = class_pattern.sub(r'\1CustomLexer\2', line)
+        modified_lines.append(line)
+
+    # Check if an import for CustomLexer is already present
+    for line in modified_lines:
+        if re.match(r'^\s*from\s+paredros_debugger\s+import\s+CustomLexer|^\s*from\s+paredros_debugger\.CustomLexer\s+import\s+CustomLexer', line):
+            import_added = True
+            break
+
+    if not import_added:
+        modified_lines.insert(0, 'from paredros_debugger.CustomLexer import CustomLexer\n')
+
+    with open(filename, 'w', encoding="utf-8") as file:
+        file.writelines(modified_lines)
