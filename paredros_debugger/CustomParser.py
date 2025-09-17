@@ -34,20 +34,44 @@ class CustomParser(Parser):
         self._errHandler.traversal.set_parser(self)
 
     def enterRule(self, localctx:ParserRuleContext, state:int, ruleIndex:int):
-        self._errHandler.traversal.create_node(self, "Rule entry")
+        rule_name = self.ruleNames[ruleIndex]
+        if not self._errHandler.error_occurred:
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            # The state for the first rule is always -1 so we have to add a special case to account for that
+            if self.state == -1: 
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            # Every other rule has its normal statenumber and therefore doesnt need any special handling
+            else:
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None)
         super().enterRule(localctx, state, ruleIndex)
 
     def exitRule(self):
-        self._errHandler.traversal.create_node(self, "Rule exit")
+        rule_name = self.ruleNames[self._ctx.getRuleIndex()]
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._create_new_node("Rule exit", self, rule_name)
         super().exitRule()
 
     def enterRecursionRule(self, localctx, state, ruleIndex, precedence):
-        self._errHandler.traversal.create_node(self, "Rule entry")
+        rule_name = self.ruleNames[ruleIndex]
+        if not self._errHandler.error_occurred:
+            state = self._interp.atn.ruleToStartState[ruleIndex]
+            if self.state == -1: 
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None, state.stateNumber)
+            else:
+                self._errHandler.traversal._create_new_node("Rule entry", self, rule_name, None)
         super().enterRecursionRule(localctx, state, ruleIndex, precedence)
 
-    def match(self, ttype):
-        return super().match(ttype)
+    def match(self, ttype:int):
+        t = self.getCurrentToken()
+        if t.type==ttype:
+            self._errHandler.reportMatch(self)
+            self.consume()
+        # else:
+        # removed the recoverInline call since we don't want to silently recover from mismatches
+        return t
     
     def consume(self):
-        self._errHandler.traversal.create_node(self, "Token consume")
+        t = self.getCurrentToken()
+        if not self._errHandler.error_occurred:
+            self._errHandler.traversal._create_new_node("Token consume", self, t)
         return super().consume()

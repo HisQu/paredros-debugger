@@ -88,7 +88,9 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
             print(f"report called")
             self.error_occurred = True
 
-        self.traversal.create_node(recognizer, "Error")
+            # # Create final error node to indicate where parsing failed
+            self.traversal._create_new_node("Error", recognizer)
+
         super().reportError(recognizer, e)
 
     def sync(self, recognizer:Parser):
@@ -106,7 +108,7 @@ class CustomDefaultErrorStrategy(DefaultErrorStrategy):
         if self.error_occurred:
             return
 
-        self.traversal.create_node(recognizer, "Sync")
+        self.traversal._create_new_node("Sync", recognizer)
         super().sync(recognizer)
 
 

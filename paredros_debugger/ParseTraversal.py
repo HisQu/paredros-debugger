@@ -17,12 +17,16 @@ Key operations:
 - Merging duplicate decision sequences
 - Managing node relationships and IDs
 """
-from antlr4 import Parser, ParserRuleContext, Token
+from typing import Any, List, Optional, Tuple
+from antlr4 import Token, TokenStream
 from antlr4.atn.Transition import AtomTransition, SetTransition, RuleTransition
 from antlr4.atn.ATNState import ATNState
 
+from paredros_debugger.CustomLexer import CustomLexer
 from paredros_debugger.ParseStep import ParseStep
 from paredros_debugger.utils import copy_token_stream
+from antlr4.Parser import Parser
+from paredros_debugger.TokenInfo import TokenInfo
 
 class ParseTraversal:
     def __init__(self):
@@ -91,7 +95,7 @@ class ParseTraversal:
                 # Convert label to its symbolicName
                 symbolic = recognizer.symbolicNames[label] if label < len(recognizer.symbolicNames) else None
                 if symbolic:
-                    results.append((next_state, symbolic))
+                    results.append((next_state, [symbolic]))
                 continue
 
             # -- SetTransition => multiple tokens
@@ -180,7 +184,18 @@ class ParseTraversal:
 
         return expanded
 
-    def add_decision_point(self, state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream):
+    def add_decision_point(self, 
+                           state: Any, 
+                           current_token_repr: str,
+                           token_index: Optional[int],
+                           rule_stack: List[str],
+                           lookahead: List[TokenInfo], 
+                           possible_transitions: List[Tuple[int, List[str]]], 
+                           input_text: str, 
+                           next_token_stream_index: Optional[int],
+                           current_rule: str, 
+                           node_type: str,
+                           token_stream):
         """
         Creates a new node in the parse traversal or updates an existing one. This method is called 
         by the parser at key points during parsing to track its progress through the grammar.
@@ -191,26 +206,58 @@ class ParseTraversal:
 
         Args:
             state: Current ATN state number/object
-            current_token: The token currently being processed
+            current_token_repr: The token currently being processed
+            token_index: Index of the current token in the full token list, or None.
+            rule_stack: List of rule names representing the current parser rule stack.
             lookahead: List of upcoming tokens being considered
             possible_transitions: List of (state, tokens) pairs representing possible transitions
             input_text: Current input with cursor position showing progress
+            next_token_stream_index: Index of the next token to be consumed in this step's token_stream.
             current_rule: Name of the current grammar rule
             node_type: Type of node (Decision, Sync, Rule entry/exit, Token consume)
+            token_stream: The token stream state at this point (often a copy).
 
         Returns:
-            ParseNode: Either a new node or the updated existing node
+            ParseStep: The newly created node added to the main traversal path.
 
         Note:
-            - Creates alternative nodes for each possible transition
-            - Handles duplicate nodes from adaptivePredict and sync calls
-            - Maintains the graph structure by linking nodes appropriately
-            - Root node is set to first created node
+            - This function builds the core step and its potential alternative branches.
+            - It links the new step into the main `self.all_steps` list and updates `self.current_node`.
+            - It calculates `matching_error` for the new node and its alternatives.
         """
-    
+        # This part can be removed. The mergingstrategy in group_and_merge will take care of this
+        # The result is that we have slightly different nodenames in the final graph (i.e. "Decision" vs. "Merged Decision")
+        # But other than that the graph is the same logically
+        # --------------------------------------------------------------------------
+        if (self.current_node and 
+            int(str(self.current_node.state)) == int(str(state)) and  
+            self.current_node.chosen_transition_index == -1):
+            # Update current node
+            self.current_node.possible_transitions = possible_transitions
+            self.current_node.lookahead = lookahead
+            self.current_node.input_text_context = input_text
+            self.current_node.next_token_stream_index = next_token_stream_index
+            self.current_node.current_token_repr = current_token_repr
+            self.current_node.rule_name = current_rule
+            self.current_node.node_type = node_type
+            self.current_node.token_stream = token_stream
+            return self.current_node
+        # --------------------------------------------------------------------------
 
         # Create node if no duplicate found
-        new_node = ParseStep(state, current_token, lookahead, possible_transitions, input_text, current_rule, node_type, token_stream)
+        new_node = ParseStep(
+            atn_state=state, 
+            current_token_repr=current_token_repr, 
+            token_index=token_index,
+            rule_stack=rule_stack,
+            lookahead=lookahead, 
+            possible_transitions=possible_transitions, 
+            input_text=input_text, 
+            next_token_stream_index=next_token_stream_index,
+            rule=current_rule, 
+            node_type=node_type, 
+            token_stream=token_stream
+            )
         self.all_steps.append(new_node)
 
         if not self.root:
@@ -221,21 +268,24 @@ class ParseTraversal:
             self.current_node = new_node
 
         if possible_transitions:
-            for alt_num, (target_state, _) in enumerate(possible_transitions):
+            for alt_num, (target_state_num, _) in enumerate(possible_transitions):
 
-                state = self.parser._interp.atn.states[target_state]
-                rule_index = state.ruleIndex if hasattr(state, "ruleIndex") else -1
-                rule_name = self.parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+                target_state_obj = self.parser._interp.atn.states[target_state_num]
+                alt_rule_index = target_state_obj.ruleIndex if hasattr(target_state_obj, "ruleIndex") else -1
+                alt_rule_name = self.parser.ruleNames[alt_rule_index] if alt_rule_index >= 0 else current_rule
 
                 alt_node = ParseStep(
-                    target_state,
-                    current_token,
-                    lookahead,
-                    [],  # No transitions for alternative nodes yet
-                    input_text,
-                    rule_name,
-                    node_type,
-                    token_stream
+                    atn_state=target_state_num,
+                    current_token_repr=current_token_repr,
+                    token_index=token_index,
+                    rule_stack=rule_stack,
+                    lookahead=lookahead,
+                    possible_transitions=[],  # No transitions for alternative nodes yet
+                    input_text=input_text,
+                    next_token_stream_index=next_token_stream_index,
+                    rule=alt_rule_name,
+                    node_type=node_type,
+                    token_stream=token_stream
                 )
                 alt_node.matching_error = alt_node.has_token_mismatch(self.parser)
                 new_node.add_alternative_node(alt_node)
@@ -277,13 +327,16 @@ class ParseTraversal:
                 rule_name = self.parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
 
                 child_node = ParseStep(
-                    new_target_state,
-                    alt_node.current_token,
-                    alt_node.lookahead,
-                    [],  # These nodes can be expanded further
-                    alt_node.input_text,
-                    rule_name,
-                    alt_node.node_type,
+                    atn_state=new_target_state,
+                    current_token_repr=alt_node.current_token_repr,
+                    token_index=alt_node.token_index,
+                    rule_stack=alt_node.rule_stack,
+                    lookahead=alt_node.lookahead,
+                    possible_transitions=[],  # These nodes can be expanded further
+                    input_text=alt_node.input_text_context,
+                    next_token_stream_index=alt_node.next_token_stream_index,
+                    rule=rule_name,
+                    node_type=alt_node.node_type,
                     token_stream=copy_token_stream(alt_node.token_stream)
                 )
 
@@ -298,79 +351,149 @@ class ParseTraversal:
         return alt_node
     
 
-    def create_node(self, recognizer: Parser, node_type, chosen_index=-1):
+    def _create_new_node(self, event_type: str, parser: Parser, rule_name: str = None, chosen_index: int = None, state_override: int = None):
         """
-        Centralized method to create a decision node based on the current parser state.
+        Add a new node to the parse traversal based on the event type.
         
         Args:
-            recognizer (Parser): The parser instance
-            node_type (str): Type of node ("Decision", "Sync", "Error", "Rule entry", etc.)
-            chosen_index (int): Optional pre-determined chosen transition index
-        
+            event_type (str): Type of parser event ("Token consume", "Rule entry", "Rule exit", "Decision", "Sync", "Error")
+            parser (Parser): The parser instance
+            
+        Returns:
+            ParseStep: The created node
         """
-        # Rule related information
-        rule_index = recognizer._ctx.getRuleIndex() if recognizer._ctx else -1
-        rule_name = recognizer.ruleNames[rule_index] if rule_index >= 0 else "unknown"
-        state = recognizer._interp.atn.states[recognizer.state]
-        
-        # Token related information
-        current_token = recognizer.getCurrentToken()
-        token_str = self._token_str(recognizer, current_token)
-        
-        # Lookahead
-        max_lookahead = 3
-        lookahead = self._get_lookahead_tokens(recognizer, recognizer.getTokenStream(), max_lookahead)
 
-        # Transitions and input
-        transitions = self.follow_transitions(state, recognizer)
-        input_text = self._get_consumed_tokens(recognizer.getTokenStream(), max_lookahead)
-        
+        state = parser._interp.atn.states[state_override] if state_override is not None else parser._interp.atn.states[parser.state]
+        readable_token = self._token_str(parser, parser.getCurrentToken())
+        lookahead = self._get_lookahead_tokens(parser, parser.getTokenStream(), 3)
+        alternatives = self.follow_transitions(state, parser)
+        input_text = self._get_consumed_tokens(parser.getTokenStream(), 3)
+        token_stream = copy_token_stream(parser.getTokenStream())
+        next_token_stream_index = token_stream.index
 
-        if node_type == "Token consume":
-            self._process_token_node( token_str)
-        elif node_type == "Rule exit":
-            self._process_rule_exit_node()
+        rule_stack = []
+        temp_ctx = parser._ctx
+        while temp_ctx is not None and temp_ctx.getRuleIndex() >= 0:
+            if temp_ctx.getRuleIndex() < len(parser.ruleNames):
+                rule_stack.append(parser.ruleNames[temp_ctx.getRuleIndex()])
+            temp_ctx = temp_ctx.parentCtx
+        rule_stack.reverse()
 
-        # Create the node
+        token_index = parser.getCurrentToken().tokenIndex if parser.getCurrentToken() else None
+        if token_index is not None and token_index < 0:
+            token_index = None
+
+        # Default case
+        current_token = readable_token
+
+        if event_type == "Rule entry":
+            current_token = rule_name
+            # Update previous node if it was waiting for this rule
+            if self.current_node and self.current_node.chosen_transition_index == -1:
+                for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                    if any(t.startswith(f'Rule {rule_name}') for t in tokens):
+                        self.current_node.chosen_transition_index = alt_idx + 1
+                        break
+
+        if event_type == "Token consume":
+            rule_index = parser._ctx.getRuleIndex() if parser._ctx else -1
+            rule_name = parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+            
+            # Update previous node if the current token matches an alternative
+            if self.current_node and self.current_node.possible_transitions:
+                if self.current_node.matches_token(readable_token):
+                    # We matched a token - mark it as chosen path
+                    self.current_node.chosen_transition_index = self.current_node.get_matching_transition(readable_token)
+
+        if event_type == "Rule exit":
+            # Update previous node if it was waiting for an exit
+            if self.current_node and self.current_node.chosen_transition_index == -1:
+                for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                    if any(t == 'Exit' for t in tokens):
+                        self.current_node.chosen_transition_index = alt_idx + 1
+                        break
+            # Exit nodes have no alternatives (we cant model them from the atn represenation)
+            current_token = f"Rule exit: {rule_name}"
+            alternatives = [(00, ['Exit'])]
+
+        if event_type == "Sync":
+
+            rule_index = parser._ctx.getRuleIndex() if parser._ctx else -1
+            rule_name = parser.ruleNames[rule_index] if rule_index >= 0 else "unknown"
+
+            # Check if the "last" node had a ruleentry that matches the current rule
+            if self.current_node and self.current_node.possible_transitions:
+                if self.current_node.matches_rule_entry(rule_name):
+                    # Look for the alternative that matched the rule and mark it as chosen
+                    for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
+                        if any(t.startswith('Rule') and rule_name in t for t in tokens):
+                            self.current_node.chosen_transition_index = i + 1
+
+
+        # Create the new node
         node = self.add_decision_point(
-            state,
-            token_str,
-            lookahead,
-            transitions,
-            input_text,
-            rule_name,
-            node_type,
-            token_stream=copy_token_stream(recognizer.getTokenStream())
+            state=state.stateNumber,
+            current_token_repr=current_token,
+            token_index=token_index,
+            rule_stack=rule_stack,
+            lookahead=lookahead,
+            possible_transitions=alternatives,
+            input_text=input_text,
+            next_token_stream_index=next_token_stream_index,
+            current_rule=rule_name,
+            node_type=event_type,
+            token_stream=token_stream
         )
 
-        if node_type == "Token consume":
+        if event_type == "Rule entry":
+            self._handle_rule_entry(node)
+        elif event_type == "Token consume":
+            self._handle_token_consume(node)
+        elif event_type == "Rule exit":
+            self._handle_rule_exit(node)
+        elif event_type == "Decision":
+            self._handle_decision(node, chosen_index)
+        elif event_type == "Error":
+            self._handle_error(node)
+
+        self.current_node = node
+        return node
+        
+    # Helper for handling specific node types
+    def _handle_rule_entry(self, node: ParseStep):
+        if len(node.possible_transitions) == 1:
             node.chosen_transition_index = 1
-            self.current_node = node
-
-        elif node_type == "Rule exit":
-            node.current_token = f"Rule exit: {rule_name}"
-            node.possible_transitions = [(00, ['Exit'])]
-            node.chosen_transition_index = 1
-            self.current_node = node
-
-        elif node_type == "Error":
-            self._process_error_node(node, recognizer)
-
-        elif node_type == "Sync":
-            self._process_sync_node(node, rule_name)
-
-        elif node_type == "Decision":
-            self._process_decision_node(node, chosen_index)
-
-        elif node_type == "Rule entry":
-            self._process_rule_entry_node(node, rule_name, transitions)
+        else:
+            for alt_idx, (_, tokens) in enumerate(node.possible_transitions):
+                if any(t == 'Exit' for t in tokens):
+                    node.chosen_transition_index = alt_idx + 1
+                    break
+            else:
+                node.chosen_transition_index = -1
+        return node
+    
+    def _handle_token_consume(self, node: ParseStep):
+        node.chosen_transition_index = 1  # Token matches are single pathed
+        return node
+    
+    def _handle_rule_exit(self, node: ParseStep):
+        node.chosen_transition_index = 1
+        return node
+    
+    def _handle_decision(self, node: ParseStep, chosen_index: int):
+        node.chosen_transition_index = chosen_index
+        return node
+    
+    def _handle_error(self, node: ParseStep):
+        node.set_error()
+        return node
 
     ####################
     # Helper functions
     ####################
-    def _get_lookahead_tokens(self, recognizer, input, lookahead_depth):
+    def _get_lookahead_tokens(self, recognizer: Parser, input: TokenStream, lookahead_depth: int):
         """
-        Get the lookahead tokens for the current state in the ATN.
+        Get the lookahead tokens for the current state in the ATN as TokenInfo objects
 
         Args:
             recognizer (Parser): The parser instance.
@@ -378,15 +501,33 @@ class ParseTraversal:
             lookahead_depth (int): The depth of lookahead.
 
         Returns:
-            str: A string representation of the lookahead tokens
+            List[TokenInfo]: A list of TokenInfo objects representing the lookahead tokens.
         """
-        tokens = []
+        token_infos = []
         for i in range(1, lookahead_depth + 1):
-            token = input.LT(i)
+            token: Token = input.LT(i)
             if token.type == Token.EOF:
                 break
-            tokens.append(self._token_str(recognizer, token))
-        return ", ".join(tokens)
+
+            invalid_type = len(recognizer.symbolicNames)  # CustomLexer's INVALID token type
+            if token.type == invalid_type:
+                lexeme_name = "INVALID"
+            elif token.type == Token.EOF:
+                lexeme_name = "EOF"
+            else:
+                lexeme_name = recognizer.symbolicNames[token.type]
+
+
+            token_info = TokenInfo(
+                index = token.tokenIndex,
+                lexeme_name = lexeme_name,
+                literal_value = token.text,
+                start_index = token.start,
+                stop_index = token.stop
+            )
+
+            token_infos.append(token_info)
+        return token_infos
 
     def _token_str(self, recognizer, token):
         """
@@ -399,9 +540,22 @@ class ParseTraversal:
         Returns:
             str: A string representation of the token.
         """
+
+        # same type as defined in the customlexer
+        invalid_type = len(recognizer.symbolicNames)
+        if token.type == invalid_type:
+            return f"INVALID ('{token.text}')"
+        elif token.type >= len(recognizer.symbolicNames):
+            return f"UNKNOWN ('{token.text}')"
+
         name = recognizer.symbolicNames[token.type]
         if name == "<INVALID>":
             return f"Literal ('{token.text}')"
+        elif token.type == Token.EOF:
+            return f"EOF ('{token.text}')"
+            # we could also just return EOF for this since afterwards there
+            # wont be any matching that needs the type text format and it looks cleaner
+            # return EOF 
         else:
             return f"{recognizer.symbolicNames[token.type]} ('{token.text}')"
 
@@ -442,7 +596,7 @@ class ParseTraversal:
             node_id: The ID to search for (can be numeric or 'Alt X' format)
 
         Returns:
-            ParseNode: The node with matching ID, or None if not found
+            ParseStep: The node with matching ID, or None if not found
         """
         def search_node(node: ParseStep):
             if str(node.id) == str(node_id):
@@ -465,59 +619,6 @@ class ParseTraversal:
             return search_node(self.root)
         return None
 
-    # Methods for updating the Datastructure based on the type of node that was added
-    #--------------------------------------------------------------------------------#
-    def _process_sync_node(self, node:ParseStep, rule_name):
-        """Checks previous node and updates its chosen_transition_index"""
-        if self.current_node and self.current_node.possible_transitions:
-            if self.current_node.matches_rule_entry(rule_name):
-                # Look for the alternative that matched the rule and mark it as chosen
-                for i, (_, tokens) in enumerate(self.current_node.possible_transitions):
-                    if any(t.startswith('Rule') and rule_name in t for t in tokens):
-                        self.current_node.chosen_transition_index = i + 1
-                        break
-        self.current_node = node
-
-    def _process_decision_node(self, node:ParseStep, decision):
-        """The chosen_transition_index is known for Decisionpoints so we just update it"""
-        node.chosen_transition_index = decision
-
-    def _process_error_node(self, node:ParseStep):
-        """Sets the Errorflag for the Errornode"""
-        node.set_error()
-
-    def _process_token_node(self, token_str):
-        """Updates previous node similar to how the sync functionality does it"""
-        if self.current_node and self.current_node.possible_transitions:
-            if self.current_node.matches_token(token_str):
-                # We matched a token - mark it as chosen path
-                self.current_node.chosen_transition_index = self.current_node.get_matching_transitions(token_str)
-
-    def _process_rule_entry_node(self, node:ParseStep, rule_name, transitions):
-        """Sets the rulenode specific properties and updates the previous node"""
-        node.current_token = rule_name
-
-        if len(transitions) == 1:
-            node.chosen_transition_index = 1
-        else:
-            for alt_idx, (_, tokens) in enumerate(transitions):
-                if any(t == 'Exit' for t in tokens):
-                    node.chosen_transition_index = alt_idx + 1
-                    break
-            else:
-                node.chosen_transition_index = -1
-        
-        self.current_node = node
-
-    def _process_rule_exit_node(self):
-        """Updates the previous nodes chosen_transition_index"""
-        if self.current_node and self.current_node.chosen_transition_index == -1:
-            for alt_idx, (_, tokens) in enumerate(self.current_node.possible_transitions):
-                if any(t == 'Exit' for t in tokens):
-                    self.current_node.chosen_transition_index = alt_idx + 1
-                    break
-    #--------------------------------------------------------------------------------#
-
     def _update_token_info_after_consume(self, node: ParseStep, expected_token: str):
         """
         Update a node's state after consuming a token from its token stream.
@@ -528,29 +629,18 @@ class ParseTraversal:
             expected_token: The token name that was expected at this point
         """
         # Check if token matches expectations
-        node.matching_error = (node.current_token != expected_token)
+        node.matching_error = (node.current_token_repr != expected_token)
         
         # Consume token and update node state
         node.token_stream.consume()
         if node.token_stream.index < len(node.token_stream.tokens):
             next_token = node.token_stream.tokens[node.token_stream.index]
-            node.current_token = self.parser.symbolicNames[next_token.type]
+            node.current_token_repr = self.parser.symbolicNames[next_token.type]
             
             # Update input context and lookahead
-            node.input_text = self._get_consumed_tokens(node.token_stream, 3)
+            node.input_text_context = self._get_consumed_tokens(node.token_stream, 3)
             node.lookahead = self._get_lookahead_tokens(self.parser, node.token_stream, 3)
-            
-            # Set next token information
-            upcoming_token = node.token_stream.LT(1)
-            if upcoming_token:
-                node.next_input_token = self.parser.symbolicNames[upcoming_token.type]
-                node.next_input_literal = upcoming_token.text
-            else:
-                node.next_input_token = None
-                node.next_input_literal = None
-        else:
-            node.next_input_token = None
-            node.next_input_literal = None
+
 
     def group_and_merge(self):
         """
@@ -639,10 +729,13 @@ class ParseTraversal:
             # Create merged node
             merged_node = ParseStep(
                 atn_state=group[0].state, 
-                current_token=group[-1].current_token,  
+                current_token_repr=group[-1].current_token_repr, 
+                token_index=group[-1].token_index,
+                rule_stack=group[0].rule_stack, 
                 lookahead=group[-1].lookahead,  
                 possible_transitions=all_alternatives,  
-                input_text=group[-1].input_text,  
+                input_text=group[-1].input_text_context,
+                next_token_stream_index=group[0].next_token_stream_index,  
                 rule=group[0].rule_name,  
                 node_type="Merged " + group[0].node_type,
                 token_stream=group[0].token_stream,
@@ -709,6 +802,22 @@ class ParseTraversal:
         if new_nodes:
             self.root = new_nodes[0]
             self.root.previous_node = None
+
+    def _remove_startrule_entry(self):
+        """
+        Removes the first node in the traversal, which is the start rule entry node.
+        """
+        if self.all_steps:
+            # Update current node, if it was the previous root to the new root
+            if self.current_node == self.root:
+                self.current_node = None
+            self.all_steps.pop(0)
+            # Update root to the next node
+            self.root = self.all_steps[0]
+            self.root.previous_node = None
+            if self.current_node == None:
+                self.current_node = self.root
+
 
 
     def _fix_node_ids(self):

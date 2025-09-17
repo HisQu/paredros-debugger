@@ -23,7 +23,7 @@ def get_file_path(arg_value: str, default_path: str, arg_name: str) -> str:
             sys.exit(1)
         return os.path.abspath(default_path)
     else:
-        # Validate user-provided path
+        # Validate the user-provided path
         abs_path = os.path.abspath(arg_value)
         if not (os.path.exists(abs_path) and os.path.isfile(abs_path)):
             print(f"Error: The {arg_name} '{abs_path}' does not exist or is not a file.")
@@ -54,13 +54,13 @@ def main():
     # Retrieve the grammar and input file paths (either from args or defaults):
     grammar_file = get_file_path(
         arg_value=args.grammar_file_path,
-        default_path="Simpleton/Simpleton_Reg.g4",
+        default_path="Samples/Simpleton/Simpleton_Reg.g4",
         arg_name="grammar_file_path"
     )
 
     input_file = get_file_path(
         arg_value=args.input_file_path,
-        default_path="Simpleton/input.txt",
+        default_path="Samples/Simpleton/input.txt",
         arg_name="input_file_path"
     )
 
@@ -72,7 +72,8 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     """
     print(f"\n=== Parsing {input_file} ===")
     parse_info = ParseInformation(grammar_file)
-    parse_info.parse(input_file)  # run the parse
+    parse_info.generate_parser()  # generate the parser
+    parse_info.parse_from_file(input_file)  # run the parse
 
     # Check if at least one node had a parse error
     had_error = any(node.is_error_node for node in parse_info.traversal.all_steps)
@@ -85,7 +86,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
     parse_tree = ParseTraceTree()
     parse_tree.build_from_traversal(parse_info.traversal)
 
-    # Dump final parse tree to JSON for reference
+    # Dump the final parse tree to JSON for reference
     if verbose:
         now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_file = f"parseTree_{now_str}.json"
@@ -102,7 +103,7 @@ def visualize_parsing(grammar_file, input_file, verbose: bool =False):
 
 def interactive_explorer_repl(
     explorer: ParseTreeExplorer, 
-    parse_info: ParseInformation, 
+    parse_info: ParseInformation,
     verbose: bool = False):
     """
     A more interactive REPL using our ParseTreeExplorer,
@@ -125,13 +126,10 @@ def interactive_explorer_repl(
             print(f" Step ID: {cur_node.id}")
             print(f" Node Type: {cur_node.node_type}")
             print(f" Rule Name: {cur_node.rule_name}")
-            print(f" Current Token: {cur_node.current_token}")
+            print(f" Current Token: {cur_node.current_token_repr}")
             print(f" Chosen Alt: {cur_node.chosen_transition_index}")
             print(f" Matching Error? {cur_node.matching_error}")
             print(f" Possible Alts: {len(cur_node.possible_transitions)}")
-            if cur_node.next_input_token or cur_node.next_input_literal:
-                print(f" Next Input Token: {cur_node.next_input_token}")
-                print(f" Next Input Literal: {cur_node.next_input_literal}")
         else:
             print("\n(No parse node at this step -- possibly at start or end of parse)")
 
@@ -224,7 +222,7 @@ def interactive_explorer_repl(
                     alt_idx = int(alt_str)
                     explorer.choose_alternative(alt_idx)
                 except ValueError:
-                    print("Invalid integer. Cancelling alt expansion.")
+                    print("Invalid integer  . Cancelling alt expansion.")
                     explorer.cancel_alt_expansion()
                 except RuntimeError as e:
                     print(f"Error picking alt: {e}")

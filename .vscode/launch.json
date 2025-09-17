@@ -11,7 +11,8 @@
             "justMyCode": false,
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
-            }
+            },
+            "args": ["--verbose"]
         }
     ]
 }
